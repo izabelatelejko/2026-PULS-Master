@@ -2,8 +2,8 @@ import os
 from typing import Any, Type
 
 from attr import dataclass
-from dataset_configs import DatasetConfig
-from loss import _PULoss
+from nnPU.dataset_configs import DatasetConfig
+from nnPU.loss import _PULoss
 
 
 @dataclass
@@ -44,6 +44,10 @@ class ExperimentConfig:
     @property
     def metrics_file(self):
         return os.path.join(self.output_dir, "metrics.json")
+
+    @property
+    def drpu_metrics_file(self):
+        return os.path.join(self.output_dir, "drpu_metrics.json")
 
     @property
     def train_metrics_per_epoch_file(self):

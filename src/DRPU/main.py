@@ -4,43 +4,70 @@ import argparse
 import numpy as np
 import torch
 
-from dataset import ImageDataset
+from DRPU.dataset import ImageDataset
+
 
 def process_args(arguments):
     parser = argparse.ArgumentParser(
         description="PyTorch implementation of unbiased/non-negative/density-ratio PU learning.",
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
-    parser.add_argument("--method", "-m", type=str, default="DRPU", choices=["uPU", "nnPU", "PUa", "DRPU"],
-                        help="Learning algorithm")
-    parser.add_argument("--dataset", "-d", type=str, default="mnist", choices=["gauss", "gauss_mix", "mnist", "fmnist", "kmnist", "cifar"],
-                        help="Dataset name")
-    parser.add_argument("--num_positive", "-n", type=int, default=2500,
-                        help="Number of positively labeled data for training dataset")
-    parser.add_argument("--loss", "-l", type=str, default="LSIF", choices=["sigmoid", "logistic", "savage", "LSIF"],
-                        help="Loss function name")
-    parser.add_argument("--alpha", "-a", type=float, default=None,
-                        help="Parameter for risk estimator")
-    parser.add_argument("--preset", "-p", action="store_true",
-                        help="Use preset of parameter settings")
-    parser.add_argument("--max_epochs",  type=int, default=100,
-                        help="Number of epochs")
-    parser.add_argument("--batch_size", type=int, default=500,
-                        help="Batch size")
-    parser.add_argument("--lr", type=float, default=2e-5,
-                        help="Learning rate")
-    parser.add_argument("--oracle_prior", action="store_true",
-                        help="Use oracle class-priors (for benchmark data)")
-    parser.add_argument("--gpu", type=int, default=0,
-                        help="GPU ID (negative value indicates CPU)")
-    parser.add_argument("--res_dir", type=str, default="results",
-                        help="Directory to output results")
-    parser.add_argument("--data_dir", type=str, default="dataset",
-                        help="Directory of datasets")
-    parser.add_argument("--seed", "-s", type=int, default=None,
-                        help="Random seed")
-    parser.add_argument("--id", "-i", type=int, default=None,
-                        help="Job ID")
+    parser.add_argument(
+        "--method",
+        "-m",
+        type=str,
+        default="DRPU",
+        choices=["uPU", "nnPU", "PUa", "DRPU"],
+        help="Learning algorithm",
+    )
+    parser.add_argument(
+        "--dataset",
+        "-d",
+        type=str,
+        default="mnist",
+        choices=["gauss", "gauss_mix", "mnist", "fmnist", "kmnist", "cifar"],
+        help="Dataset name",
+    )
+    parser.add_argument(
+        "--num_positive",
+        "-n",
+        type=int,
+        default=2500,
+        help="Number of positively labeled data for training dataset",
+    )
+    parser.add_argument(
+        "--loss",
+        "-l",
+        type=str,
+        default="LSIF",
+        choices=["sigmoid", "logistic", "savage", "LSIF"],
+        help="Loss function name",
+    )
+    parser.add_argument(
+        "--alpha", "-a", type=float, default=None, help="Parameter for risk estimator"
+    )
+    parser.add_argument(
+        "--preset", "-p", action="store_true", help="Use preset of parameter settings"
+    )
+    parser.add_argument("--max_epochs", type=int, default=100, help="Number of epochs")
+    parser.add_argument("--batch_size", type=int, default=500, help="Batch size")
+    parser.add_argument("--lr", type=float, default=2e-5, help="Learning rate")
+    parser.add_argument(
+        "--oracle_prior",
+        action="store_true",
+        help="Use oracle class-priors (for benchmark data)",
+    )
+    parser.add_argument(
+        "--gpu", type=int, default=0, help="GPU ID (negative value indicates CPU)"
+    )
+    parser.add_argument(
+        "--res_dir", type=str, default="results", help="Directory to output results"
+    )
+    parser.add_argument(
+        "--data_dir", type=str, default="dataset", help="Directory of datasets"
+    )
+    parser.add_argument("--seed", "-s", type=int, default=None, help="Random seed")
+    parser.add_argument("--id", "-i", type=int, default=None, help="Job ID")
     args = parser.parse_args(arguments)
     if args.method in ["DRPU"]:
         if args.loss not in ["LSIF"]:
@@ -98,9 +125,9 @@ def main(args):
             device_num=args.gpu,
             res_dir=args.res_dir,
             seed=args.seed,
-            id=args.id
+            id=args.id,
         )
-    
+
     else:
         true_test_priors = [0.2, 0.4, 0.6, 0.8]
         loss_name = "LSIF" if args.method == "DRPU" else "sigmoid"
@@ -140,7 +167,7 @@ def main(args):
             batch_size = 500
             lr = 1e-5
             alpha = 0.425 if args.method == "DRPU" else None
-        
+
         if not args.preset:
             train_size = (args.num_positive, train_size[1])
             max_epochs = args.max_epochs
@@ -173,10 +200,9 @@ def main(args):
             res_dir=args.res_dir,
             data_dir=args.data_dir,
             seed=args.seed,
-            id=args.id
+            id=args.id,
         )
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main(sys.argv[1:])
-

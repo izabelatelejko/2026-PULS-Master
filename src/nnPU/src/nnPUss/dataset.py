@@ -1,6 +1,6 @@
 # %%
 import os
-from typing import Literal
+from typing import Literal, Optional
 
 import numpy as np
 import pandas as pd
@@ -109,13 +109,16 @@ class SCAR_CC_Labeler(PULabeler):
         P_samples_num = int(np.ceil(A * c * (self._prior * n)))
         U_samples_num = int(np.ceil(A * (1 - c) * n))
 
-        positive_idx = torch.where(y == 1)[0]
-        selected_positive_idx = torch.multinomial(
-            torch.ones_like(positive_idx, dtype=torch.float32),
-            P_samples_num,
-            replacement=True,
-        )
-        positive_labeled_idx = positive_idx[selected_positive_idx]
+        if c != 0:
+            positive_idx = torch.where(y == 1)[0]
+            selected_positive_idx = torch.multinomial(
+                torch.ones_like(positive_idx, dtype=torch.float32),
+                P_samples_num,
+                replacement=True,
+            )
+            positive_labeled_idx = positive_idx[selected_positive_idx]
+        else:
+            positive_labeled_idx = torch.tensor([], dtype=torch.int64)
 
         unlabeled_idx = torch.multinomial(
             torch.ones_like(y, dtype=torch.float32), U_samples_num, replacement=True
@@ -173,13 +176,124 @@ class PUDatasetBase:
         assert self.data is not None
         assert self.targets is not None
 
+        print(len(self.data), len(self.targets))
         self.data, self.binary_targets = self.target_transformer.transform(
             self.data, self.targets
         )
+        print(len(self.data), len(self.targets), len(self.binary_targets))
         self.data, self.binary_targets, self.pu_targets = self.pu_labeler.relabel(
             self.data, self.binary_targets
         )
+        print(len(self.data), len(self.targets), len(self.binary_targets))
         return self.data, self.binary_targets, self.pu_targets
+
+    def _convert_to_shifted_pu_data(
+        self, shifted_prior: Optional[float], n_samples: Optional[int] = None
+    ):
+        """Converts data to PU data with given prior.
+
+        If n_samples is specified, the number of samples in the shifted data will be n_samples.
+        Otherwise, the number of samples will be the maximum number of samples that can be generated
+        to achieve the shifted prior.
+        """
+        assert self.target_transformer is not None
+        assert self.pu_labeler is not None
+        assert self.data is not None
+        assert self.targets is not None
+
+        self.data, self.binary_targets = self.target_transformer.transform(
+            self.data, self.targets
+        )
+
+        n = len(self.data)
+        n_pos = torch.sum(self.binary_targets == 1).item()
+        n_neg = n - n_pos
+        prior = n_pos / n
+        c = self.pu_labeler._label_frequency
+
+        if shifted_prior is None and n_samples is None:
+            shifted_prior = prior
+            P_samples = int(np.ceil(c * n_pos))
+            U_samples = n - P_samples
+            n_pos_new = n_pos - P_samples
+            n_neg_new = n_neg
+            n_samples = n
+
+        else:
+            if n_samples is None:
+                n_samples = n
+
+            if shifted_prior is None:
+                shifted_prior = prior
+
+            A = 1 / (1 - c + c * shifted_prior)
+
+            P_samples = int(np.ceil(A * c * (shifted_prior * n_samples)))
+            U_samples = n_samples - P_samples
+
+            if shifted_prior < prior:
+                U_max = int(n_neg / (1 - shifted_prior))
+                assert U_samples <= U_max, f"U_samples must be less than {U_max}"
+                n_neg_new = int(n_neg * U_samples / U_max)
+                n_pos_new = int(n_samples - n_neg_new) - P_samples
+            else:
+                U_max = int(n_pos / shifted_prior)
+                assert U_samples <= U_max, f"U_samples must be less than {U_max}"
+                n_pos_new = int(n_pos * U_samples / U_max)
+                n_neg_new = int(n_samples - n_pos_new)
+
+            assert n_pos_new <= n_pos, f"n_pos_new must be less than {n_pos}"
+
+        self.pu_labeler._prior = torch.tensor(n_pos_new / U_samples)
+        # print(f"{n_pos=}, {n_neg=}, {prior=}")
+        # print(f"{n_pos_new=}, {n_neg_new=}, {n_samples=}, {U_max=}")
+        # print(f"{P_samples=}, {U_samples=}, {n_samples=}, {c=}")
+        self.dataset_stats = {
+            "n_pos": n_pos_new,  # within n_u
+            "n_neg": n_neg_new,  # within n_u
+            "n_p": P_samples,
+            "n_u": U_samples,
+            "n_samples": n_samples,
+        }
+
+        pos_idx = torch.where(self.binary_targets == 1)[0]
+        neg_idx = torch.where(self.binary_targets == -1)[0]
+
+        selected_pos_idx = torch.multinomial(
+            torch.ones_like(pos_idx, dtype=torch.float32),
+            n_pos_new + P_samples,
+            replacement=False,
+        )
+        selected_neg_idx = torch.multinomial(
+            torch.ones_like(neg_idx, dtype=torch.float32),
+            n_neg_new,
+            replacement=False,
+        )
+
+        self.data = torch.cat(
+            [
+                self.data[pos_idx[selected_pos_idx]],
+                self.data[neg_idx[selected_neg_idx]],
+            ]
+        )
+        self.targets = torch.cat(
+            [
+                self.targets[pos_idx[selected_pos_idx]],
+                self.targets[neg_idx[selected_neg_idx]],
+            ]
+        )
+        self.binary_targets = torch.cat(
+            [
+                self.binary_targets[pos_idx[selected_pos_idx]],
+                self.binary_targets[neg_idx[selected_neg_idx]],
+            ]
+        )
+        self.pu_targets = torch.cat(
+            [
+                torch.ones(P_samples),
+                self.pu_labeler._NEGATIVE_LABEL * torch.ones(n_samples - P_samples),
+            ]
+        )
 
     def get_prior(self):
         assert self.train is not None
@@ -715,31 +829,31 @@ class ImageEmbeddingDataset(DatasetSplitterMixin, PUDatasetBase):
             idx = self.get_split_idx(dataset, split_name, random_seed=random_seed)
             dataset = dataset.select(idx)
 
-        def transforms(examples):
-            image_processor = AutoImageProcessor.from_pretrained(
-                "MBZUAI/swiftformer-xs"
-            )
-            model = SwiftFormerModel.from_pretrained("MBZUAI/swiftformer-xs").cuda()
+        self.image_processor = AutoImageProcessor.from_pretrained(
+            "MBZUAI/swiftformer-xs"
+        )
+        self.image_processing_model = SwiftFormerModel.from_pretrained(
+            "MBZUAI/swiftformer-xs"
+        ).cpu()
 
+        def transforms(examples):
             embeddings = []
             for img in examples[image_col]:
                 if image_preprocessing_fun:
                     img = image_preprocessing_fun(img)
 
-                inputs = image_processor(img, return_tensors="pt")
-                inputs["pixel_values"] = inputs["pixel_values"].cuda()
+                inputs = self.image_processor(img, return_tensors="pt")
+                inputs["pixel_values"] = inputs["pixel_values"].cpu()
 
                 with torch.no_grad():
-                    outputs = model(**inputs)
+                    outputs = self.image_processing_model(**inputs)
 
                 last_hidden_states = outputs.last_hidden_state
                 embeddings.append(last_hidden_states.reshape(-1).cpu())
             examples["data"] = embeddings
             return examples
 
-        dataset = dataset.map(
-            transforms, remove_columns=[image_col], batched=True
-        )
+        dataset = dataset.map(transforms, remove_columns=[image_col], batched=True)
         self.data = torch.tensor(dataset["data"])
         self.targets = torch.tensor(dataset[label_col])
         if self.targets.dtype == torch.bool:

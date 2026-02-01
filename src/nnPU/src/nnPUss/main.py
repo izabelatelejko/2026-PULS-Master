@@ -1,8 +1,8 @@
 # %%
-from dataset_configs import DatasetConfigs
-from experiment_config import ExperimentConfig
-from loss import nnPUccLoss, nnPUssLoss, uPUccLoss, uPUssLoss
-from run_experiment import Experiment
+from nnPU.dataset_configs import DatasetConfigs
+from nnPU.experiment_config import ExperimentConfig
+from nnPU.loss import nnPUccLoss, nnPUssLoss, uPUccLoss, uPUssLoss
+from nnPU.run_experiment import Experiment
 
 if __name__ == "__main__":
     for exp_number in range(0, 10):

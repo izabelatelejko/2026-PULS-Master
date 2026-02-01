@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 import pkbar
 import torch
-from experiment_config import ExperimentConfig
-from metric_values import MetricValues
-from model import PUModel
+from nnPU.experiment_config import ExperimentConfig
+from nnPU.metric_values import MetricValues
+from nnPU.model import PUModel
 from sklearn import metrics
 from torch.optim import Adam
 from torch.utils.data import DataLoader
@@ -35,6 +35,7 @@ class Experiment:
             self.model.parameters(),
             lr=self.experiment_config.dataset_config.learning_rate,
             weight_decay=0.005,
+            betas=(0.9, 0.999),
         )
 
         self.train_metrics = []
@@ -83,26 +84,26 @@ class Experiment:
 
         data = {}
         for is_train_set in [True, False]:
-            data[
-                "train" if is_train_set else "test"
-            ] = self.experiment_config.dataset_config.DatasetClass(
-                self.experiment_config.data_dir,
-                self.experiment_config.dataset_config.PULabelerClass(
-                    label_frequency=self.experiment_config.label_frequency
-                ),
-                train=is_train_set,
-                download=True,
-                random_seed=self.experiment_config.seed,
+            data["train" if is_train_set else "test"] = (
+                self.experiment_config.dataset_config.DatasetClass(
+                    self.experiment_config.data_dir,
+                    self.experiment_config.dataset_config.PULabelerClass(
+                        label_frequency=self.experiment_config.label_frequency
+                    ),
+                    train=is_train_set,
+                    download=True,
+                    random_seed=self.experiment_config.seed,
+                )
             )
-
-        train_set = data["train"]
-        self.prior = train_set.get_prior()
+        
+        self.train_set = data["train"]
+        self.prior = self.train_set.get_prior()
         self.train_loader = DataLoader(
-            train_set,
+            self.train_set,
             batch_size=self.experiment_config.dataset_config.train_batch_size,
             shuffle=True,
         )
-        self.n_inputs = len(next(iter(train_set))[0].reshape(-1))
+        self.n_inputs = len(next(iter(self.train_set))[0].reshape(-1))
 
         test_set = data["test"]
         self.test_loader = DataLoader(
