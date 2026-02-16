@@ -172,7 +172,7 @@ def wrapper(X_mixture,X_component):
 from sklearn.decomposition import PCA
 
 
-def KM2_estimate(pos, unl):
+def KM1_KM2_estimate(pos, unl):
     np.random.shuffle(pos)
     np.random.shuffle(unl)
     if unl.shape[1] > 50:
@@ -181,5 +181,5 @@ def KM2_estimate(pos, unl):
         pos = pca.transform(pos)
         unl = pca.transform(unl)
     KM1, KM2 = wrapper(unl.astype(np.float64), pos.astype(np.float64))
-    return KM2
+    return KM1, KM2
 

@@ -3,7 +3,7 @@ import numpy as np
 import pandas as pd
 import torch
 
-from nnPU.dataset_configs import DatasetConfigs
+from .dataset_configs import DatasetConfigs
 
 stats = []
 for dataset_config in [

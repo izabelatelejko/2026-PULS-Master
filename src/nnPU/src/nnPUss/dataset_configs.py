@@ -1,4 +1,4 @@
-from nnPU.dataset import (
+from .dataset import (
     CIFAR_PU,
     IMDB_PU,
     MNIST_PU,

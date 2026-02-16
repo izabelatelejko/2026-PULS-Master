@@ -1,9 +1,9 @@
 import os
-from typing import Any, Type
+from typing import Type
 
 from attr import dataclass
-from nnPU.dataset_configs import DatasetConfig
-from nnPU.loss import _PULoss
+from .dataset_configs import DatasetConfig
+from .loss import _PULoss
 
 
 @dataclass
@@ -11,19 +11,10 @@ class ExperimentConfig:
     PULoss: Type[_PULoss]
     dataset_config: DatasetConfig
     label_frequency: float
-    exp_number: int  # seed
+    exp_number: int
 
     data_dir: str = os.path.join("data")
     output_root_dir: str = os.path.join("output")
-
-    # train_batch_size: int = 512
-    # train_batch_size: int = 30_000
-    # eval_batch_size: int = 128
-
-    # learning_rate: float = 1e-5
-    # learning_rate: float = 1e-4
-    # learning_rate: float = 1e-3
-    # num_epochs: int = 50
 
     force_cpu: bool = False
 
@@ -36,7 +27,6 @@ class ExperimentConfig:
         return os.path.join(
             self.output_root_dir,
             self.dataset_config.name,
-            self.PULoss.name,
             str(self.label_frequency),
             str(self.exp_number),
         )

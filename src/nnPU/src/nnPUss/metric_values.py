@@ -15,6 +15,7 @@ class MetricValues:
     recall: float
     f1: float
     auc: float
+    balanced_accuracy: float
 
     loss: Optional[float] = None
 

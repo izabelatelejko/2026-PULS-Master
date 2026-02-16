@@ -169,6 +169,16 @@ class PUDatasetBase:
         label = self.pu_targets[idx]
         return input, target, label
 
+    def copy(self):
+        """Create a shallow copy of the dataset with cloned tensors."""
+        import copy
+        new_dataset = copy.copy(self)
+        # Clone tensors to avoid modifying the original
+        new_dataset.data = self.data.clone()
+        new_dataset.binary_targets = self.binary_targets.clone()
+        new_dataset.pu_targets = self.pu_targets.clone()
+        return new_dataset
+
     def _convert_to_pu_data(self):
         assert self.target_transformer is not None
         assert self.pu_labeler is not None
@@ -186,6 +196,34 @@ class PUDatasetBase:
         )
         print(len(self.data), len(self.targets), len(self.binary_targets))
         return self.data, self.binary_targets, self.pu_targets
+    
+    def _replace_unlabeled_with_target_data(self, data, targets):
+        """Replaces the unlabeled data in the PU dataset with new data and targets from target dataset."""
+        # Leave positive labelled data as is, replace unlabeled data with new data and targets
+        # Labelled positive <- pu_targets = 1
+        pos_lab_idx = torch.where(self.pu_targets == 1)[0]
+        self.data = torch.cat([self.data[pos_lab_idx], data])
+        self.binary_targets = torch.cat(
+            [self.binary_targets[pos_lab_idx], targets]
+        )
+        self.pu_targets = torch.cat(
+            [self.pu_targets[pos_lab_idx], -1 * torch.ones(len(data))]
+        )
+
+        # Log dataset stats after replacement
+        n = len(self.data)
+        n_pos = torch.sum(self.binary_targets == 1).item()
+        c = self.pu_labeler._label_frequency
+        P_samples = int(np.ceil(c * n_pos))
+        self.dataset_stats = {
+            "n_pos": n_pos - P_samples,  # within n_u
+            "n_neg": n - n_pos,  # within n_u
+            "n_p": P_samples,
+            "n_u": n - P_samples,
+            "n_samples": n,
+        }
+
+
 
     def _convert_to_shifted_pu_data(
         self, shifted_prior: Optional[float], n_samples: Optional[int] = None
@@ -212,11 +250,10 @@ class PUDatasetBase:
         c = self.pu_labeler._label_frequency
 
         if shifted_prior is None and n_samples is None:
-            shifted_prior = prior
             P_samples = int(np.ceil(c * n_pos))
             U_samples = n - P_samples
-            n_pos_new = n_pos - P_samples
-            n_neg_new = n_neg
+            n_u_pos = n_pos - P_samples
+            n_u_neg = n_neg
             n_samples = n
 
         else:
@@ -230,27 +267,19 @@ class PUDatasetBase:
 
             P_samples = int(np.ceil(A * c * (shifted_prior * n_samples)))
             U_samples = n_samples - P_samples
+            n_u_pos = int(np.ceil(shifted_prior * U_samples))
+            n_u_neg = U_samples - n_u_pos
 
-            if shifted_prior < prior:
-                U_max = int(n_neg / (1 - shifted_prior))
-                assert U_samples <= U_max, f"U_samples must be less than {U_max}"
-                n_neg_new = int(n_neg * U_samples / U_max)
-                n_pos_new = int(n_samples - n_neg_new) - P_samples
-            else:
-                U_max = int(n_pos / shifted_prior)
-                assert U_samples <= U_max, f"U_samples must be less than {U_max}"
-                n_pos_new = int(n_pos * U_samples / U_max)
-                n_neg_new = int(n_samples - n_pos_new)
+            assert (n_u_pos + P_samples) <= n_pos, f"n_pos={n_u_pos+P_samples} must be less than {n_pos}"
+            assert n_u_neg <= n_neg, f"{n_u_neg=} must be less than {n_neg}"
 
-            assert n_pos_new <= n_pos, f"n_pos_new must be less than {n_pos}"
-
-        self.pu_labeler._prior = torch.tensor(n_pos_new / U_samples)
+        self.pu_labeler._prior = torch.tensor(n_u_pos / U_samples)
         # print(f"{n_pos=}, {n_neg=}, {prior=}")
-        # print(f"{n_pos_new=}, {n_neg_new=}, {n_samples=}, {U_max=}")
+        # print(f"{n_u_pos=}, {n_u_neg=}, {n_samples=}, {U_max=}")
         # print(f"{P_samples=}, {U_samples=}, {n_samples=}, {c=}")
         self.dataset_stats = {
-            "n_pos": n_pos_new,  # within n_u
-            "n_neg": n_neg_new,  # within n_u
+            "n_pos": n_u_pos,  # within n_u
+            "n_neg": n_u_neg,  # within n_u
             "n_p": P_samples,
             "n_u": U_samples,
             "n_samples": n_samples,
@@ -261,12 +290,12 @@ class PUDatasetBase:
 
         selected_pos_idx = torch.multinomial(
             torch.ones_like(pos_idx, dtype=torch.float32),
-            n_pos_new + P_samples,
+            n_u_pos + P_samples,
             replacement=False,
         )
         selected_neg_idx = torch.multinomial(
             torch.ones_like(neg_idx, dtype=torch.float32),
-            n_neg_new,
+            n_u_neg,
             replacement=False,
         )
 

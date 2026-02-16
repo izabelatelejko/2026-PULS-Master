@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 import pkbar
 import torch
-from nnPU.experiment_config import ExperimentConfig
-from nnPU.metric_values import MetricValues
-from nnPU.model import PUModel
+from .experiment_config import ExperimentConfig
+from .metric_values import MetricValues
+from .model import PUModel
 from sklearn import metrics
 from torch.optim import Adam
 from torch.utils.data import DataLoader
@@ -226,6 +226,7 @@ class Experiment:
             recall=metrics.recall_score(y_true, y_pred),
             f1=metrics.f1_score(y_true, y_pred),
             auc=metrics.roc_auc_score(y_true, y_pred),
+            balanced_accuracy=metrics.balanced_accuracy_score(y_true, y_pred),
         )
 
         return metric_values
