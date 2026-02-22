@@ -115,7 +115,7 @@ class PULSExperiment(Experiment):
             self.label_shift_config.test_n_samples or len(data["test"])
         )
         self.label_shift_config.mixed_n_samples = len(data["mixed_train"])
-        self.label_shift_config.mixed_prior = data["mixed_train"].get_new_prior()
+        self.label_shift_config.mixed_prior = data["mixed_train"].get_prior_after_shift()
 
         self.train_loader = DataLoader(
             self.train_set,
