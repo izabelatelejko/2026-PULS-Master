@@ -15,6 +15,8 @@ class PiEstimates(BaseModel):
     mlls_drpu: Optional[float] = None
     n_iter_mlls_nnpu: Optional[int] = None
     n_iter_mlls_drpu: Optional[int] = None
+    mixed_prior: Optional[float] = None
+    mixed_prior_km2: Optional[float] = None
 
 
 class LabelShiftConfig(BaseModel):

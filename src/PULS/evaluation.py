@@ -7,11 +7,10 @@ import pandas as pd
 from PULS.const import (
     K,
     RESULTS_DIR,
-    TA_METHODS,
     ALL_METHODS,
+    NNPU_METHODS,
     PI_ESTIMATION_METHODS,
     METRICS,
-    MODELS,
 )
 
 
@@ -65,22 +64,16 @@ def get_single_TC_metrics(
     test_pi: float,
     aggregate: bool = False,
     single_exp: bool = False,
+    nnpu_only: bool = False,
 ):
     """Get combined TC metrics for the given dataset and parameters."""
+    methods = ALL_METHODS if not nnpu_only else NNPU_METHODS
+
     tc_results = {}
-    for model in MODELS:
-        tc_results[model] = {}
-        tc_results[model]["MLLS"] = {}
-        for method in TA_METHODS:
-            tc_results[model][f"TA-{method}"] = {}
-            for metric in METRICS:
-                tc_results[model][f"TA-{method}"][metric] = []
+    for method_name in methods:
+        tc_results[method_name] = {}
         for metric in METRICS:
-            tc_results[model]["MLLS"][metric] = []
-        for method in ["KM2", "DR"]:
-            tc_results[model][f"{method}"] = {}
-            for metric in METRICS:
-                tc_results[model][method][metric] = []
+            tc_results[method_name][metric] = []
 
     n_exp = 1 if single_exp else K
     for exp_number in range(0, n_exp):
@@ -93,30 +86,19 @@ def get_single_TC_metrics(
         with open(metrics_file_path, "r") as f:
             metrics_contents = json.load(f)
 
-        for model in MODELS:
-            for method in TA_METHODS:
+        for method_name in methods:
+            if method_name in metrics_contents:
+                method_data = metrics_contents[method_name]
                 for metric in METRICS:
-                    tc_results[model][f"TA-{method}"][metric].append(
-                        metrics_contents["TA"][model][method][metric]
-                    )
-        for model in MODELS:
-            for metric in METRICS:
-                tc_results[model]["MLLS"][metric].append(
-                    metrics_contents["MLLS"][model][metric]
-                )
-        for model in MODELS:
-            for method in ["KM2", "DR"]:
-                for metric in METRICS:
-                    tc_results[model][method][metric].append(
-                        metrics_contents["Mixed"][model][method][metric]
-                    )
+                    if metric in method_data:
+                        tc_results[method_name][metric].append(method_data[metric])
 
     if aggregate and not single_exp:
-        for model in MODELS:
-            for method in TA_METHODS:
-                for metric in METRICS:
-                    tc_results[model][method][metric] = (
-                        sum(tc_results[model][method][metric]) / n_exp
+        for method_name in methods:
+            for metric in METRICS:
+                if tc_results[method_name][metric]:
+                    tc_results[method_name][metric] = (
+                        sum(tc_results[method_name][metric]) / len(tc_results[method_name][metric])
                     )
 
     return tc_results
@@ -131,6 +113,7 @@ def get_combined_TC_metrics(
     test_pi: List[float],
     aggregate: bool = False,
     single_exp: bool = False,
+    nnpu_only: bool = False,
 ):
     """Get combined TC metrics for the given dataset and parameters."""
 
@@ -148,6 +131,7 @@ def get_combined_TC_metrics(
                 new_pi,
                 aggregate=aggregate,
                 single_exp=single_exp,
+                nnpu_only=nnpu_only,
             )
     return combined_tc_metrics
 
@@ -328,8 +312,10 @@ def evaluate_all_TC_metrics(
     test_pi: List[float],
     convert_to_df: bool = False,
     single_exp: bool = False,
+    nnpu_only: bool = False,
 ):
     """Evaluate TC metrics for all PULS settings."""
+    methods = ALL_METHODS if not nnpu_only else NNPU_METHODS
 
     combined_tc_metrics = get_combined_TC_metrics(
         dataset_name,
@@ -340,28 +326,28 @@ def evaluate_all_TC_metrics(
         test_pi,
         aggregate=True,
         single_exp=single_exp,
+        nnpu_only=nnpu_only,
     )
 
     if not convert_to_df:
         return combined_tc_metrics
 
     combined_tc_metrics_df = pd.DataFrame(
-        columns=["pi", "new_pi", "model", "method", "metric", "average_value"]
+        columns=["pi", "new_pi", "method", "metric", "average_value"]
     )
     for pi in train_pi:
         for new_pi in test_pi:
-            for model in MODELS:
-                for method in ALL_METHODS:
-                    for metric in METRICS:
+            for method in methods:
+                for metric in METRICS:
+                    if metric in combined_tc_metrics[f"{pi}"][f"{new_pi}"][method]:
                         tc_metrics_row = {
                             "pi": pi,
                             "new_pi": new_pi,
-                            "model": model,
                             "method": method,
                             "metric": metric,
                             "average_value": combined_tc_metrics[f"{pi}"][f"{new_pi}"][
-                                model
-                            ][method][metric],
+                                method
+                            ][metric],
                         }
                         combined_tc_metrics_df = pd.concat(
                             [
@@ -450,24 +436,22 @@ def evaluate_all_TC_metrics_from_all_data(
         columns=["label_frequency", "model", "method", "metric", "average_value"]
     )
     for label_frequency in label_frequencies:
-        for model in MODELS:
-            for method in TC_METHODS:
-                for metric in METRICS:
-                    tc_metrics_row = {
-                        "label_frequency": label_frequency,
-                        "model": model,
-                        "method": method,
-                        "metric": metric,
-                        "average_value": combined_tc_metrics[f"{label_frequency}"][
-                            model
-                        ][method][metric],
-                    }
-                    combined_tc_metrics_df = pd.concat(
-                        [
-                            combined_tc_metrics_df,
-                            pd.DataFrame(tc_metrics_row, index=[0]),
-                        ],
-                        ignore_index=True,
-                    )
+        for method in ALL_METHODS:
+            for metric in METRICS:
+                tc_metrics_row = {
+                    "label_frequency": label_frequency,
+                    "method": method,
+                    "metric": metric,
+                    "average_value": combined_tc_metrics[f"{label_frequency}"][
+                        method
+                    ][metric],
+                }
+                combined_tc_metrics_df = pd.concat(
+                    [
+                        combined_tc_metrics_df,
+                        pd.DataFrame(tc_metrics_row, index=[0]),
+                    ],
+                    ignore_index=True,
+                )
 
     return combined_tc_metrics_df

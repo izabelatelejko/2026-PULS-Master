@@ -119,6 +119,19 @@ class nnPUccLoss(_PULoss):
     ):
         super().__init__(prior, loss, gamma, beta, nnPU=True, single_sample=False)
 
+    
+class nnPUccLoss_CE(_PULoss):
+    name = "nnPUcc_CE"
+
+    def __init__(
+        self,
+        prior,
+        loss=lambda x: torch.nn.functional.softplus(-x),  # cross-entropy
+        gamma=1,
+        beta=0,
+    ):
+        super().__init__(prior, loss, gamma, beta, nnPU=True, single_sample=False)
+
 
 class nnPUssLoss(_PULoss):
     name = "nnPUss"
@@ -159,6 +172,7 @@ class uPUssLoss(_PULoss):
         super().__init__(prior, loss, gamma, beta, nnPU=False, single_sample=True)
 
 
+
 class DRPUccLoss(_PULoss):
     name = "DRPUcc"
 
@@ -188,10 +202,6 @@ class DRPUccLoss(_PULoss):
         y_positive = x[positive]
         y_unlabeled = x[unlabeled]
 
-        print(
-            f"positive: {y_positive.shape}, unlabeled: {y_unlabeled.shape}, alpha: {self.alpha}"
-        )
-
         E_pp = torch.mean(-self.df(y_positive) + self.alpha * self.f_nn(y_positive))
         E_pn = torch.mean(self.f_nn(y_positive))
         E_u = torch.mean(self.f_nn(y_unlabeled))
@@ -209,5 +219,5 @@ class DRPUccLoss(_PULoss):
         else:
             loss = -self.gamma * E_n
 
-        print(f"E_pp: {E_pp}, E_pn: {E_pn}, E_u: {E_u}, E_n: {E_n}, loss: {loss}")
+        # print(f"E_pp: {E_pp}, E_pn: {E_pn}, E_u: {E_u}, E_n: {E_n}, loss: {loss}")
         return loss

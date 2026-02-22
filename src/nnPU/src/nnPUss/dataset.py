@@ -186,15 +186,15 @@ class PUDatasetBase:
         assert self.data is not None
         assert self.targets is not None
 
-        print(len(self.data), len(self.targets))
+        # print(len(self.data), len(self.targets))
         self.data, self.binary_targets = self.target_transformer.transform(
             self.data, self.targets
         )
-        print(len(self.data), len(self.targets), len(self.binary_targets))
+        # print(len(self.data), len(self.targets), len(self.binary_targets))
         self.data, self.binary_targets, self.pu_targets = self.pu_labeler.relabel(
             self.data, self.binary_targets
         )
-        print(len(self.data), len(self.targets), len(self.binary_targets))
+        # print(len(self.data), len(self.targets), len(self.binary_targets))
         return self.data, self.binary_targets, self.pu_targets
     
     def _replace_unlabeled_with_target_data(self, data, targets):
@@ -331,6 +331,15 @@ class PUDatasetBase:
             return self.pu_labeler.prior
         else:
             return None
+        
+    def get_prior_after_shift(self):
+        """Returns the prior after shifting the dataset."""
+        unlabeled_idx = torch.where(self.pu_targets == -1)[0]
+        unlabeled_targets = self.binary_targets[unlabeled_idx]
+        n_pos_in_unlabeled = torch.sum(unlabeled_targets == 1).item()
+        
+        return n_pos_in_unlabeled / len(unlabeled_idx)
+
 
 
 class DatasetSplitterMixin:
