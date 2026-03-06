@@ -1,4 +1,4 @@
-# Azure Deployment Guide for PULS Experiments
+# Azure Deployment
 
 This guide shows a setup to run the experiment on Azure Container Instances and download outputs from Azure Storage.
 
@@ -53,7 +53,7 @@ az acr repository show-tags --name pulsreg123 --repository puls-experiment --out
 ## 3. Run the container on Azure
 
 ```powershell
-# Create the container group (Linux)
+# Create the container group
 az container create `
   --resource-group puls-experiments `
   --name puls-exp-job-001 `
@@ -61,7 +61,12 @@ az container create `
   --registry-login-server pulsreg123.azurecr.io `
   --registry-username pulsreg123 `
   --registry-password "<REGISTRY_PASSWORD>" `
-  --environment-variables AZURE_STORAGE_CONNECTION_STRING="<STORAGE_CONNECTION_STRING>" `
+  --environment-variables `
+    AZURE_STORAGE_CONNECTION_STRING="<STORAGE_CONNECTION_STRING>" `
+    EXPERIMENT_K="10" `
+    EXPERIMENT_N="5000" `
+    EXPERIMENT_TRAIN_PI_GRID="0.2,0.4,0.6,0.8" `
+    EXPERIMENT_TEST_PI_GRID="0.2,0.4,0.6,0.8" `
   --os-type Linux `
   --memory 16 `
   --cpu 1 `
@@ -75,7 +80,7 @@ az container create `
 az container show --resource-group puls-experiments --name puls-exp-job-001 --query "instanceView.state" -o tsv
 
 # Show recent logs
-az container logs --resource-group puls-experiments --name puls-exp-job-001 --tail 200
+az container logs --resource-group puls-experiments --name puls-exp-job-001
 
 # Show last failure reason (if any)
 az container show --resource-group puls-experiments --name puls-exp-job-001 --query "instanceView.events[0].message" -o tsv
@@ -87,6 +92,3 @@ az container show --resource-group puls-experiments --name puls-exp-job-001 --qu
 # Download results from Azure Storage
 python download_azure_results.py
 ```
-
-
-
