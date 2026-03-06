@@ -55,7 +55,37 @@ def get_single_pi_estimates(
     return pi_results
 
 
-def get_single_TC_metrics(
+def get_combined_pi_estimates(
+    dataset_name: str,
+    mean: Optional[float],
+    n: int,
+    label_frequency: float,
+    train_pi: List[float],
+    test_pi: List[float],
+    aggregate: bool = False,
+    single_exp: bool = False,
+):
+    """Get combined PI estimates for the given dataset and parameters."""
+
+    combined_pi_estimates = {}
+
+    for pi in train_pi:
+        combined_pi_estimates[f"{pi}"] = {}
+        for new_pi in test_pi:
+            combined_pi_estimates[f"{pi}"][f"{new_pi}"] = get_single_pi_estimates(
+                dataset_name,
+                mean,
+                n,
+                label_frequency,
+                pi,
+                new_pi,
+                aggregate=aggregate,
+                single_exp=single_exp,
+            )
+    return combined_pi_estimates
+
+
+def get_single_metrics(
     dataset_name: str,
     mean: Optional[float],
     n: int,
@@ -89,22 +119,53 @@ def get_single_TC_metrics(
         for method_name in methods:
             if method_name in metrics_contents:
                 method_data = metrics_contents[method_name]
+                est_pi = method_data["estimated_test_pi"] 
+                if est_pi is None and method_name == "nnPU+Target":
+                    if "DRPU+Target" in metrics_contents and "estimated_test_pi" in metrics_contents["DRPU+Target"]:
+                        est_pi = metrics_contents["DRPU+Target"]["estimated_test_pi"]
+                    else:
+                        est_pi = -1 
+                elif est_pi is None and method_name == "nnPU":
+                    est_pi = -1 # Set to -1 as nnPU does not estimate test pi
+                converged = est_pi > 0.03 and est_pi < 0.97
+                if method_name in ["nnPU+MLLS", "DRPU+MLLS"] and not converged:
+                    continue
+  
                 for metric in METRICS:
-                    if metric in method_data:
-                        tc_results[method_name][metric].append(method_data[metric])
-
+                    if metric == "estimated_test_pi":
+                        tc_results[method_name]["estimated_test_pi"].append(est_pi)
+                    elif metric in method_data:
+                        value = method_data[metric]
+                        tc_results[method_name][metric].append(value)
+                
     if aggregate and not single_exp:
         for method_name in methods:
             for metric in METRICS:
-                if tc_results[method_name][metric]:
-                    tc_results[method_name][metric] = (
-                        sum(tc_results[method_name][metric]) / len(tc_results[method_name][metric])
+                values = tc_results[method_name][metric]
+                n_values = len(values)
+                if n_values == 0:
+                    mean = 0
+                    std = 0
+                    se = 0
+                else:
+                    mean = (
+                        sum(values) / n_values
                     )
+                    std = (
+                            sum((v - mean) ** 2 for v in values) / (n_values - 1)
+                        ) ** 0.5 
+                    se = std / n_values
+                tc_results[method_name][metric] = {
+                    "mean": mean,
+                    "std": std,
+                    "se": se
+                }
+            tc_results[method_name]["converged"] = n_values
 
     return tc_results
 
 
-def get_combined_TC_metrics(
+def get_combined_metrics(
     dataset_name: str,
     mean: Optional[float],
     n: int,
@@ -122,7 +183,7 @@ def get_combined_TC_metrics(
     for pi in train_pi:
         combined_tc_metrics[f"{pi}"] = {}
         for new_pi in test_pi:
-            combined_tc_metrics[f"{pi}"][f"{new_pi}"] = get_single_TC_metrics(
+            combined_tc_metrics[f"{pi}"][f"{new_pi}"] = get_single_metrics(
                 dataset_name,
                 mean,
                 n,
@@ -134,36 +195,6 @@ def get_combined_TC_metrics(
                 nnpu_only=nnpu_only,
             )
     return combined_tc_metrics
-
-
-def get_combined_pi_estimates(
-    dataset_name: str,
-    mean: Optional[float],
-    n: int,
-    label_frequency: float,
-    train_pi: List[float],
-    test_pi: List[float],
-    aggregate: bool = False,
-    single_exp: bool = False,
-):
-    """Get combined PI estimates for the given dataset and parameters."""
-
-    combined_pi_estimates = {}
-
-    for pi in train_pi:
-        combined_pi_estimates[f"{pi}"] = {}
-        for new_pi in test_pi:
-            combined_pi_estimates[f"{pi}"][f"{new_pi}"] = get_single_pi_estimates(
-                dataset_name,
-                mean,
-                n,
-                label_frequency,
-                pi,
-                new_pi,
-                aggregate=aggregate,
-                single_exp=single_exp,
-            )
-    return combined_pi_estimates
 
 
 def evaluate_single_shifted_pi_estimation(
@@ -180,30 +211,43 @@ def evaluate_single_shifted_pi_estimation(
                 "estimated_test_pi"
             ][0]
         else:
+            if method in ["mlls_nnpu", "mlls_drpu"]:
+                converged_idx = [
+                    i
+                    for i, pi in enumerate(metrics[method]["estimated_test_pi"])
+                    if pi > 0.03 and pi < 0.97
+                ]
+            else:
+                converged_idx = list(range(len(metrics[method]["estimated_test_pi"])))
+            estimated_pis = [metrics[method]["estimated_test_pi"][i] for i in converged_idx]
             absolute_errors = [
-                abs(pi - true_shifted_pi) for pi in metrics[method]["estimated_test_pi"]
+                abs(pi - true_shifted_pi) for pi in estimated_pis
             ]
             pi_results[method]["mae"] = sum(absolute_errors) / K
             pi_results[method]["std_mae"] = (
                 sum((ae - pi_results[method]["mae"]) ** 2 for ae in absolute_errors)
                 / (K - 1)
             ) ** 0.5
+            pi_results[method]["se_mae"] = (
+                pi_results[method]["std_mae"] / K
+            )
             pi_results[method]["mse"] = (
                 sum(
                     (pi - true_shifted_pi) ** 2
-                    for pi in metrics[method]["estimated_test_pi"]
+                    for pi in estimated_pis
                 )
                 / K
             )
-            pi_results[method]["mean"] = sum(metrics[method]["estimated_test_pi"]) / K
+            pi_results[method]["mean"] = sum(estimated_pis) / K
             pi_results[method]["std"] = (
                 sum(
                     (pi - pi_results[method]["mean"]) ** 2
-                    for pi in metrics[method]["estimated_test_pi"]
+                    for pi in estimated_pis
                 )
                 / (K - 1)
             ) ** 0.5
             pi_results[method]["se"] = pi_results[method]["std"] / K
+            pi_results[method]["converged"] = len(converged_idx)
 
     return pi_results
 
@@ -217,6 +261,7 @@ def evaluate_shifted_pi_estimation(
     test_pi: List[float],
     convert_to_df: bool = False,
     single_exp: bool = False,
+    nnpu_only: bool = False,
 ):
     """Evaluate TC metrics for given PULS setting."""
 
@@ -258,10 +303,12 @@ def evaluate_shifted_pi_estimation(
                 "method",
                 "mae",
                 "std_mae",
+                "se_mae",
                 "mse",
                 "mean",
                 "std",
                 "se",
+                "converged",
             ]
         )
     for pi in train_pi:
@@ -285,12 +332,18 @@ def evaluate_shifted_pi_estimation(
                         "std_mae": combined_pi_results[f"{pi}"][f"{new_pi}"][method][
                             "std_mae"
                         ],
+                        "se_mae": combined_pi_results[f"{pi}"][f"{new_pi}"][method][
+                            "se_mae"
+                        ],
                         "mse": combined_pi_results[f"{pi}"][f"{new_pi}"][method]["mse"],
                         "mean": combined_pi_results[f"{pi}"][f"{new_pi}"][method][
                             "mean"
                         ],
                         "std": combined_pi_results[f"{pi}"][f"{new_pi}"][method]["std"],
                         "se": combined_pi_results[f"{pi}"][f"{new_pi}"][method]["se"],
+                        "converged": combined_pi_results[f"{pi}"][f"{new_pi}"][method][
+                            "converged"
+                        ],
                     }
                 combined_pi_results_df = pd.concat(
                     [
@@ -303,7 +356,7 @@ def evaluate_shifted_pi_estimation(
     return combined_pi_results_df
 
 
-def evaluate_all_TC_metrics(
+def evaluate_all_metrics(
     dataset_name: str,
     mean: float,
     n: int,
@@ -317,7 +370,7 @@ def evaluate_all_TC_metrics(
     """Evaluate TC metrics for all PULS settings."""
     methods = ALL_METHODS if not nnpu_only else NNPU_METHODS
 
-    combined_tc_metrics = get_combined_TC_metrics(
+    combined_tc_metrics = get_combined_metrics(
         dataset_name,
         mean,
         n,
@@ -333,13 +386,14 @@ def evaluate_all_TC_metrics(
         return combined_tc_metrics
 
     combined_tc_metrics_df = pd.DataFrame(
-        columns=["pi", "new_pi", "method", "metric", "average_value"]
+        columns=["pi", "new_pi", "method", "metric", "average_value", "std", "se", "converged"]
     )
     for pi in train_pi:
         for new_pi in test_pi:
             for method in methods:
                 for metric in METRICS:
                     if metric in combined_tc_metrics[f"{pi}"][f"{new_pi}"][method]:
+                        
                         tc_metrics_row = {
                             "pi": pi,
                             "new_pi": new_pi,
@@ -347,7 +401,16 @@ def evaluate_all_TC_metrics(
                             "metric": metric,
                             "average_value": combined_tc_metrics[f"{pi}"][f"{new_pi}"][
                                 method
-                            ][metric],
+                            ][metric]["mean"],
+                            "std": combined_tc_metrics[f"{pi}"][f"{new_pi}"][
+                                method
+                            ][metric]["std"],
+                            "se": combined_tc_metrics[f"{pi}"][f"{new_pi}"][
+                                method
+                            ][metric]["se"],
+                            "converged": combined_tc_metrics[f"{pi}"][f"{new_pi}"][
+                                method
+                            ]["converged"],
                         }
                         combined_tc_metrics_df = pd.concat(
                             [
@@ -409,7 +472,7 @@ def evaluate_shifted_pi_estimation_from_all_data(
     return combined_pi_results_df
 
 
-def evaluate_all_TC_metrics_from_all_data(
+def evaluate_all_metrics_from_all_data(
     dataset_name: str,
     mean: Optional[float],
     label_frequencies: List[float],

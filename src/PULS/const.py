@@ -7,10 +7,9 @@ K = 10  # Number of experiments for each setting
 RESULTS_DIR = "output"
 
 MODELS = ["nnpu", "drpu"]
-NNPU_METHODS = ["nnPU", "nnPU+TA+True", "nnPU+TA+KM2", "nnPU+TA+DRE", "nnPU+MLLS", "nnPU+Target"]
-DRPU_METHODS = ["DRPU", "DRPU+TA+True", "DRPU+TA+KM2", "DRPU+MLLS", "DRPU+Target"]
-ALL_METHODS = NNPU_METHODS + DRPU_METHODS
-PI_ESTIMATION_METHODS = ["km2", "dre", "mlls_nnpu", "mlls_drpu"]
+NNPU_METHODS = ["nnPU", "nnPU+TA+True", "nnPU+TA+KM2", "nnPU+MLLS", "nnPU+Target"]
+ALL_METHODS = NNPU_METHODS + [ "nnPU+TA+DRE", "DRPU", "DRPU+TA+True", "DRPU+TA+KM2", "DRPU+MLLS", "DRPU+Target"]
+PI_ESTIMATION_METHODS = ["km2", "dre", "mlls_nnpu", "mlls_drpu", "dre_from_mixed"]
 METRICS = [
     "accuracy",
     "precision",
@@ -19,6 +18,7 @@ METRICS = [
     "auc",
     "threshold",
     "estimated_test_pi",
+    "balanced_accuracy",
 ]
 
 class ModelType(str, Enum):
