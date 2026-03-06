@@ -12,7 +12,7 @@ from torch.optim import Adam
 
 from DRPU.algorithm import priorestimator as ratio_estimator
 from DRPU.algorithm import PUsequence, to_ndarray
-from DRPU.modules.Kernel_MPE import KM1_KM2_estimate
+from DRPU.modules.Kernel_MPE import KM2_estimate
 from nnPU.run_experiment import Experiment, DictJsonEncoder
 from nnPU.experiment_config import ExperimentConfig
 from nnPU.model import PUModel
@@ -138,6 +138,8 @@ class PULSExperiment(Experiment):
             shuffle=True,
         )
 
+        self.KM2 = self._estimate_test_km_prior()
+
         self.metrics["dataset_stats"] = {
             "train": data["train"].dataset_stats,
             "mixed_train": data["mixed_train"].dataset_stats,
@@ -218,7 +220,6 @@ class PULSExperiment(Experiment):
         self._set_seed()
         self.model_from_mixed = self.model_from_mixed.to(self.device)
         self.from_mixed_train_metrics = []
-        mixed_prior = self.estimate_mixed_prior()
 
         for epoch in range(self.experiment_config.dataset_config.num_epochs):
             kbar = pkbar.Kbar(
@@ -228,7 +229,7 @@ class PULSExperiment(Experiment):
                 width=8,
                 always_stateful=False,
             )
-            self._train_step_from_mixed(epoch, kbar, mixed_prior=mixed_prior)
+            self._train_step_from_mixed(epoch, kbar, mixed_prior=self.KM2)
 
         print("Mixed-nnPU training complete.")
 
@@ -258,7 +259,6 @@ class PULSExperiment(Experiment):
         self._set_seed()
         self.ratio_model_from_mixed = self.ratio_model_from_mixed.to(self.device)
         self.ratio_from_mixed_train_metrics = []
-        mixed_prior = self.estimate_mixed_prior()
 
         for epoch in range(self.experiment_config.dataset_config.num_epochs):
             kbar = pkbar.Kbar(
@@ -268,24 +268,17 @@ class PULSExperiment(Experiment):
                 width=8,
                 always_stateful=False,
             )
-            self._train_step_ratio_from_mixed(epoch, kbar, mixed_prior=mixed_prior)
+            self._train_step_ratio_from_mixed(epoch, kbar, mixed_prior=self.KM2)
 
         print("Mixed-DRPU training complete.")
 
-    def estimate_mixed_prior(self) -> None:
-        """Estimate the prior of the mixed training set using density ratio method."""
-        pos = self.train_set.data.clone()[self.train_set.pu_targets == 1].numpy()
-        unl = self.mixed_set.data.clone().numpy() 
-        _, KM2 = KM1_KM2_estimate(pos, unl)
-        return KM2
-
-    def _estimate_test_km_priors(self) -> tuple[float, float]:
+    def _estimate_test_km_prior(self) -> tuple[float, float]:
         """Estimate the prior of test set with KM1 and KM2 methods."""
         pos = self.train_set.data.clone()[self.train_set.pu_targets == 1].numpy()
         unl = self.test_set.data.clone().numpy()
-        KM1, KM2 = KM1_KM2_estimate(pos, unl)
+        KM2 = KM2_estimate(pos, unl)
 
-        return KM1, KM2
+        return KM2
 
     def _estimate_test_density_ratio_prior(self, model_type: ModelType = ModelType.DRPU) -> float:
         """Estimate the prior of test set with density ratio method."""
@@ -322,9 +315,6 @@ class PULSExperiment(Experiment):
         # True pi
         true_pi = self.label_shift_config.test_prior
 
-        # KM1, KM2
-        KM1, KM2 = self._estimate_test_km_priors()
-
         # Density ratio
         if use_drpu:
             ratio_pi = self._estimate_test_density_ratio_prior()
@@ -334,16 +324,13 @@ class PULSExperiment(Experiment):
             mixed_ratio_pi = None
 
         mixed_prior = self.label_shift_config.mixed_prior
-        mixed_prior_km2 = self.estimate_mixed_prior()
 
         self.test_pis = PiEstimates(
             true=true_pi,
-            km1=KM1,
-            km2=KM2,
+            km2=self.KM2,
             dre=ratio_pi,
             dre_from_mixed=mixed_ratio_pi,
             mixed_prior=mixed_prior,
-            mixed_prior_km2=mixed_prior_km2,
         )
 
     def _run_mlls(
@@ -693,3 +680,4 @@ class PULSExperiment(Experiment):
         self.train_ratio_estimator()
         self.train_from_mixed()
         self.train_ratio_from_mixed()
+        print("All models trained.")

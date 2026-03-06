@@ -25,6 +25,14 @@ class Experiment:
 
         use_cuda = not self.experiment_config.force_cpu and torch.cuda.is_available()
         self.device = torch.device("cuda" if use_cuda else "cpu")
+        
+        # GPU verification
+        print(f"[Experiment] PyTorch version: {torch.__version__}")
+        print(f"[Experiment] CUDA available: {torch.cuda.is_available()}")
+        if torch.cuda.is_available():
+            print(f"[Experiment] GPU: {torch.cuda.get_device_name(0)}")
+            print(f"[Experiment] CUDA version: {torch.version.cuda}")
+        print(f"[Experiment] Using device: {self.device}")
 
         self._prepare_data()
 
@@ -121,6 +129,13 @@ class Experiment:
         loss_fct = self.experiment_config.PULoss(prior=self.prior)
         for batch_idx, (data, target, label) in enumerate(self.train_loader):
             data, label = data.to(self.device), label.to(self.device)
+            
+            # Verify tensors are on correct device (only on first batch of first epoch)
+            if epoch == 0 and batch_idx == 0:
+                print(f"[nnPU] Model device: {next(self.model.parameters()).device}")
+                print(f"[nnPU] Data tensor device: {data.device}")
+                print(f"[nnPU] Label tensor device: {label.device}")
+            
             self.optimizer.zero_grad()
             output = self.model(data)
 

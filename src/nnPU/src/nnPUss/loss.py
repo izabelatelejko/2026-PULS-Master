@@ -49,7 +49,11 @@ class _PULoss(nn.Module):
         positive, unlabeled = positive.type(torch.float), unlabeled.type(torch.float)
         if x.is_cuda:
             self.min_count = self.min_count.cuda()
-            self.prior = self.prior.cuda()
+            # Handle prior being either a tensor or a float
+            if isinstance(self.prior, torch.Tensor):
+                self.prior = self.prior.cuda()
+            else:
+                self.prior = torch.tensor(self.prior, device=x.device)
         n_positive, n_unlabeled = torch.max(
             self.min_count, torch.sum(positive)
         ), torch.max(self.min_count, torch.sum(unlabeled))

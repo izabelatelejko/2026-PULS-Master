@@ -1,4 +1,6 @@
 output/*
+output_azure/*
+output_external/*
 .vscode/
 secrets.json
 

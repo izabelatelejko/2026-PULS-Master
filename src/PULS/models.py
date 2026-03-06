@@ -7,7 +7,6 @@ from pydantic import BaseModel
 class PiEstimates(BaseModel):
 
     true: Optional[float] = None
-    km1: Optional[float] = None
     km2: Optional[float] = None
     dre: Optional[float] = None
     dre_from_mixed: Optional[float] = None
