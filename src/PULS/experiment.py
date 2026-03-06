@@ -540,6 +540,7 @@ class PULSExperiment(Experiment):
     ):
         """Testing with MLLS method."""
         threshold = 0.5
+        probs = probs.to(self.device)
         preds = torch.where(
             probs < threshold,
             torch.tensor(-1, device=self.device),

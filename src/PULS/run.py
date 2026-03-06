@@ -10,11 +10,11 @@ from nnPU.loss import nnPUccLoss, nnPUccLoss_CE
 
 
 
-def run_experiments(dataset_name, dataset_class, n, label_frequency, train_pi_grid, test_pi_grid, K, mean=None, verbose=True):
+def run_experiments(dataset_name, dataset_class, n, label_frequency, train_pi_grid, test_pi_grid, K_values, mean=None, verbose=True):
     """Run all PULS experiments."""
     for train_pi in train_pi_grid:
         for test_pi in test_pi_grid:
-            for exp_number in range(0, K):
+            for exp_number in [int(K_value) for K_value in K_values]:
 
                 label_shift_config = LabelShiftConfig(train_prior=train_pi, train_n_samples=n, test_prior=test_pi, test_n_samples=n)
 

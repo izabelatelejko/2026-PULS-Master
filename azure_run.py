@@ -54,24 +54,34 @@ def main():
     print()
     
     try:
-        # Run experiment
         print("Running PULS GaussTest experiment...")
         print("-" * 80)
         
-        K = 10
-        n = 5000
-        label_frequency = 0.5
-        dataset_name = "GaussTest"
+        K_values = [int(x.strip()) for x in os.getenv("EXPERIMENT_K_VALUES", "1").split(",")]
+        n = int(os.getenv("EXPERIMENT_N", "5000"))
+        label_frequency = float(os.getenv("EXPERIMENT_LABEL_FREQUENCY", "0.5"))
+        dataset_name = os.getenv("EXPERIMENT_DATASET_NAME", "GaussTest")
+        mean = float(os.getenv("EXPERIMENT_MEAN", "0.8"))
+        
+        train_pi_str = os.getenv("EXPERIMENT_TRAIN_PI_GRID", "0.5")
+        test_pi_str = os.getenv("EXPERIMENT_TEST_PI_GRID", "0.5")
+        train_pi_grid = [float(x.strip()) for x in train_pi_str.split(",")]
+        test_pi_grid = [float(x.strip()) for x in test_pi_str.split(",")]
+        
+        print(f"Parameters: K_values={K_values}, n={n}, label_frequency={label_frequency}")
+        print(f"Dataset: {dataset_name}, mean={mean}")
+        print(f"Train PI grid: {train_pi_grid}, Test PI grid: {test_pi_grid}")
+        print()
         
         run_experiments(
             dataset_name=dataset_name, 
             dataset_class=Gauss_PULS, 
             n=n, 
             label_frequency=label_frequency, 
-            train_pi_grid=[0.2, 0.4, 0.6, 0.8], 
-            test_pi_grid=[0.2, 0.4, 0.6, 0.8], 
-            K=K, 
-            mean=0.8, 
+            train_pi_grid=train_pi_grid, 
+            test_pi_grid=test_pi_grid, 
+            K_values=K_values, 
+            mean=mean, 
             verbose=True
         )
         
