@@ -160,19 +160,19 @@ def wrapper(X_mixture,X_component):
     nu1=nu1/distribution_RKHS_dist                                    
     lambda_star_est_1=mpe(kernel,N,M,nu=nu1)
     kappa_star_est_1=(lambda_star_est_1-1)/lambda_star_est_1                    
-    nu2=1/sqrt(np.min([M,N]))
-    nu2=nu2/distribution_RKHS_dist
-    if nu2>0.9:
-        nu2=nu1
-    lambda_star_est_2=mpe(kernel,N,M,nu=nu2)                    
-    kappa_star_est_2=(lambda_star_est_2-1)/lambda_star_est_2
-    return (kappa_star_est_2,kappa_star_est_1)	
+    # nu2=1/sqrt(np.min([M,N]))
+    # nu2=nu2/distribution_RKHS_dist
+    # if nu2>0.9:
+    #     nu2=nu1
+    # lambda_star_est_2=mpe(kernel,N,M,nu=nu2)                    
+    # kappa_star_est_2=(lambda_star_est_2-1)/lambda_star_est_2
+    return (None,kappa_star_est_1)	# (kappa_star_est_2,kappa_star_est_1)	
 
 
 from sklearn.decomposition import PCA
 
 
-def KM1_KM2_estimate(pos, unl):
+def KM2_estimate(pos, unl):
     np.random.shuffle(pos)
     np.random.shuffle(unl)
     if unl.shape[1] > 50:
@@ -180,6 +180,6 @@ def KM1_KM2_estimate(pos, unl):
         pca.fit(unl)
         pos = pca.transform(pos)
         unl = pca.transform(unl)
-    KM1, KM2 = wrapper(unl.astype(np.float64), pos.astype(np.float64))
-    return KM1, KM2
+    _, KM2 = wrapper(unl.astype(np.float64), pos.astype(np.float64))
+    return KM2
 
