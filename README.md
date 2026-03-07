@@ -28,12 +28,18 @@ conda create -y --name=puls python=3.10
 conda activate puls
 ```
 
-### 4. Install CUDA and PyTorch with GPU Support
+### 4. Install PyTorch with GPU Support
 
-To use GPU acceleration, install the required CUDA toolkit and PyTorch with CUDA 11.8 support. 
+To use GPU acceleration, install PyTorch with CUDA support. For most GPUs (CUDA 11.8):
 
 ```bash
-conda install cudatoolkit=11.8 pytorch-cuda=11.8 -c nvidia -c pytorch -c conda-forge
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
+```
+
+For newer GPUs (e.g. RTX 50 series), use the nightly build with CUDA 12.8:
+
+```bash
+pip install --pre torch torchvision --index-url https://download.pytorch.org/whl/nightly/cu128
 ```
 
 ### 5. Install Project Dependencies
