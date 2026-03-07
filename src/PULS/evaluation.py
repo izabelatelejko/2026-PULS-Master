@@ -153,7 +153,7 @@ def get_single_metrics(
                     )
                     std = (
                             sum((v - mean) ** 2 for v in values) / (n_values - 1)
-                        ) ** 0.5 
+                        ) ** 0.5 if n_values > 1 else 0
                     se = std / n_values
                 tc_results[method_name][metric] = {
                     "mean": mean,

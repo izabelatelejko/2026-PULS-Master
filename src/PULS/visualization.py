@@ -1,10 +1,25 @@
 """Module for visualization of evaluation results."""
 
+import os
 import seaborn as sns
 import matplotlib.pyplot as plt
+import numpy as np
 
 
-def plot_mae(df, pi_grid, label_frequency, verbose=False, show_se=True, K=None):
+def _save_plot(fig, folder, dataset_name, label_frequency, metric, identifier=None):
+    """Save plot to file with unique name."""
+    os.makedirs(folder, exist_ok=True)
+    parts = [dataset_name.lower(), f"{label_frequency}", metric.replace(" ", "_")]
+    if identifier:
+        parts.append(identifier)
+    filename = "_".join(str(p) for p in parts) + ".png"
+    filepath = os.path.join(folder, filename)
+    fig.savefig(filepath, dpi=150, bbox_inches='tight')
+    print(f"Saved plot to {filepath}")
+
+
+def plot_mae(df, pi_grid, label_frequency, verbose=False, show_se=True, K=None,
+             save=False, dataset_name=None, identifier=None, save_folder="results_img"):
     """Plot Mean Absolute Error (MAE) with Standard Error (SE) for different methods across varying train and test priors.
     
     Args:
@@ -14,6 +29,10 @@ def plot_mae(df, pi_grid, label_frequency, verbose=False, show_se=True, K=None):
         verbose: If True, use verbose labels
         show_se: If True, plot standard error as shaded area (requires 'se' column in df)
         K: Total number of experiments (used for MLLS convergence annotation)
+        save: If True, save the plot to file
+        dataset_name: Name of the dataset (used for filename)
+        identifier: Additional identifier for filename
+        save_folder: Folder to save plots to
     """
     df = df.copy()
     df = df.sort_values(['pi', 'new_pi'])
@@ -96,11 +115,16 @@ def plot_mae(df, pi_grid, label_frequency, verbose=False, show_se=True, K=None):
         g.figure.suptitle(f"$c = {label_frequency}$", fontsize=12, x=0.47)
         
     plt.tight_layout()
-    g.add_legend(title="Method", loc='center right')    
+    g.add_legend(title="Method", loc='center right')
+    
+    if save and dataset_name:
+        _save_plot(g.figure, save_folder, dataset_name, label_frequency, "mae", identifier)
+    
     plt.show()
 
 
-def plot_metric(df, metric, pi_grid, label_frequency, verbose=False, show_se=False, K=None):
+def plot_metric(df, metric, pi_grid, label_frequency, verbose=False, show_se=False, K=None,
+                save=False, dataset_name=None, identifier=None, save_folder="results_img"):
     """Plot a given metric for different methods across varying train and test priors.
     
     Args:
@@ -111,6 +135,10 @@ def plot_metric(df, metric, pi_grid, label_frequency, verbose=False, show_se=Fal
         verbose: If True, use verbose labels
         show_se: If True, plot standard error as shaded area (requires 'se' column in df)
         K: Total number of experiments (used for MLLS convergence annotation)
+        save: If True, save the plot to file
+        dataset_name: Name of the dataset (used for filename)
+        identifier: Additional identifier for filename
+        save_folder: Folder to save plots to
     """
     df = df.copy()
     df = df.sort_values(['pi', 'new_pi'])
@@ -198,4 +226,195 @@ def plot_metric(df, metric, pi_grid, label_frequency, verbose=False, show_se=Fal
 
     plt.tight_layout()
     g.add_legend(title="Model + Method", loc='center right')
+    
+    if save and dataset_name:
+        _save_plot(g.figure, save_folder, dataset_name, label_frequency, metric.lower(), identifier)
+    
     plt.show()
+
+
+def plot_roc(metrics_contents, model='drpu', train_pi=None, test_pi=None,
+             show_optimal=True, show_youden=True, show_05=True,
+             save=False, dataset_name=None, identifier=None, save_folder="results_img"):
+    """Plot ROC curve with various threshold markers.
+    
+    Args:
+        metrics_contents: Dictionary containing 'test_pis' and 'roc_curve' data from metrics.json
+        model: Model name ('drpu' or 'nnpu') for which to plot ROC curve
+        train_pi: Training prior (π) - used for optimal threshold calculation
+        test_pi: Test prior (π') - used for optimal threshold calculation
+        pi_methods: List of pi estimation methods to show (e.g., ['dre', 'km2']). If None, shows all available.
+        show_optimal: If True, show optimal threshold point (requires train_pi and test_pi)
+        show_youden: If True, show Youden's J statistic threshold
+        show_05: If True, show threshold = 0.5 point
+        save: If True, save the plot to file
+        dataset_name: Name of the dataset (used for filename)
+        identifier: Additional identifier for filename
+        save_folder: Folder to save plots to
+    """
+    roc_data = metrics_contents['roc_curve'][model]
+    fpr = roc_data['fpr']
+    tpr = roc_data['tpr']
+    thresholds = [float(t) for t in roc_data['thresholds']]
+    
+    fig, ax = plt.subplots(figsize=(6, 6))
+    
+    ax.plot(fpr, tpr, color='purple', linewidth=2, label='ROC Curve')
+    ax.plot([0, 1], [0, 1], linestyle='--', color='grey', alpha=0.7, label='Random')
+    
+    # Threshold = 0.5
+    if show_05:
+        idx_05 = np.argmin(np.abs([t - 0.5 for t in thresholds]))
+        ax.scatter(fpr[idx_05], tpr[idx_05], color='orange', s=100, zorder=5, 
+                   marker='*', label='Threshold = 0.5')
+    
+    # Optimal threshold (true π')
+    if show_optimal and train_pi is not None and test_pi is not None:
+        optimal_threshold = train_pi * (1 - test_pi) / ((1 - train_pi) * test_pi + train_pi * (1 - test_pi))
+        idx_optimal = np.argmin(np.abs([t - optimal_threshold for t in thresholds]))
+        ax.scatter(fpr[idx_optimal], tpr[idx_optimal], color='red', s=100, zorder=5,
+                   marker='^', label=f'Target (true $\\pi\'$) = {optimal_threshold:.2f}')
+    
+    # Youden's J Statistic - best balanced accuracy
+    if show_youden:
+        J = [tpr[i] - fpr[i] for i in range(len(fpr))]
+        idx_youden = np.argmax(J)
+        youden_threshold = thresholds[idx_youden]
+        ax.scatter(fpr[idx_youden], tpr[idx_youden], color='blue', s=100, zorder=5,
+                   marker='^', label=f"Youden's J = {youden_threshold:.2f}")
+    
+    for pi_method, color in zip(["km2", "dre"], ["green", "olive"]):
+        if pi_method not in metrics_contents.get('test_pis', {}):
+            continue
+        pi = metrics_contents['test_pis'][pi_method]
+        if pi is None or train_pi is None:
+            continue
+        corrected_threshold = train_pi * (1 - pi) / ((1 - train_pi) * pi + train_pi * (1 - pi))
+        idx_corr = np.argmin(np.abs([t - corrected_threshold for t in thresholds]))
+        ax.scatter(fpr[idx_corr], tpr[idx_corr], color=color, s=100, zorder=5,
+                   marker='x', linewidths=2,
+                   label=f"{pi_method.upper()} = {corrected_threshold:.2f} ($\\hat{{\\pi}}'={pi:.2f}$)")
+        ax.annotate(f'{pi_method.upper()}', 
+                    (fpr[idx_corr], tpr[idx_corr]), 
+                    textcoords="offset points", 
+                    xytext=(0, 10), 
+                    ha='center', 
+                    fontsize=10, 
+                    color=color)
+    
+    ax.set_aspect('equal', adjustable='box')
+    ax.set_xlim(-0.02, 1.02)
+    ax.set_ylim(-0.02, 1.02)
+    ax.set_title(f"$\\pi={train_pi}, \\pi'={test_pi}$", fontsize=12)
+    ax.set_xlabel('False Positive Rate', fontsize=11)
+    ax.set_ylabel('True Positive Rate', fontsize=11)
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc='lower right', fontsize=11)
+    
+    plt.tight_layout()
+    
+    if save and dataset_name:
+        _save_plot(fig, save_folder, dataset_name, f"pi{train_pi}_pip{test_pi}", f"roc_{model}", identifier)
+    
+    plt.show()
+    
+    return fig, ax
+
+
+def plot_roc_grid(metrics_list, model='drpu', pi_pairs=None,
+                  show_optimal=True, show_youden=True, show_05=True,
+                  save=False, dataset_name=None, identifier=None, save_folder="results_img"):
+    """Plot ROC curves in a 2x2 grid for multiple (train_pi, test_pi) pairs.
+    
+    Args:
+        metrics_list: List of 4 dictionaries containing 'test_pis' and 'roc_curve' data,
+                      OR a function/callable that takes (train_pi, test_pi) and returns metrics_contents
+        model: Model name ('drpu' or 'nnpu') for which to plot ROC curve
+        pi_pairs: List of 4 tuples [(train_pi1, test_pi1), (train_pi2, test_pi2), ...].
+                  Required if metrics_list is a callable.
+        show_optimal: If True, show optimal threshold point
+        show_youden: If True, show Youden's J statistic threshold
+        show_05: If True, show threshold = 0.5 point
+        save: If True, save the plot to file
+        dataset_name: Name of the dataset (used for filename)
+        identifier: Additional identifier for filename
+        save_folder: Folder to save plots to
+    """
+    fig, axes = plt.subplots(2, 2, figsize=(10, 10))
+    axes = axes.flatten()
+    
+    for idx, (metrics_contents, (train_pi, test_pi)) in enumerate(zip(metrics_list, pi_pairs)):
+        ax = axes[idx]
+        
+        roc_data = metrics_contents['roc_curve'][model]
+        fpr = roc_data['fpr']
+        tpr = roc_data['tpr']
+        thresholds = [float(t) for t in roc_data['thresholds']]
+        
+        # Plot ROC curve
+        ax.plot(fpr, tpr, color='purple', linewidth=2, label='ROC Curve')
+        ax.plot([0, 1], [0, 1], linestyle='--', color='grey', alpha=0.7, label='Random')
+        
+        # Threshold = 0.5
+        if show_05:
+            idx_05 = np.argmin(np.abs([t - 0.5 for t in thresholds]))
+            ax.scatter(fpr[idx_05], tpr[idx_05], color='orange', s=80, zorder=5, 
+                       marker='*', label='Threshold = 0.5')
+        
+        # Optimal threshold (true pi')
+        if show_optimal and train_pi is not None and test_pi is not None:
+            optimal_threshold = train_pi * (1 - test_pi) / ((1 - train_pi) * test_pi + train_pi * (1 - test_pi))
+            idx_optimal = np.argmin(np.abs([t - optimal_threshold for t in thresholds]))
+            ax.scatter(fpr[idx_optimal], tpr[idx_optimal], color='red', s=80, zorder=5,
+                       marker='^', label=f'Target = {optimal_threshold:.2f}')
+        
+        # Youden's J Statistic
+        if show_youden:
+            J = [tpr[i] - fpr[i] for i in range(len(fpr))]
+            idx_youden = np.argmax(J)
+            youden_threshold = thresholds[idx_youden]
+            ax.scatter(fpr[idx_youden], tpr[idx_youden], color='blue', s=80, zorder=5,
+                       marker='^', label=f"Youden's J = {youden_threshold:.2f}")
+        
+        # Estimated pi' methods
+        methods_to_show = ["dre", "km2"]
+        
+        colors = ["green", "olive"]
+        for i, pi_method in enumerate(methods_to_show):
+            if pi_method not in metrics_contents.get('test_pis', {}):
+                continue
+            pi = metrics_contents['test_pis'][pi_method]
+            if pi is None or train_pi is None:
+                continue
+            corrected_threshold = train_pi * (1 - pi) / ((1 - train_pi) * pi + train_pi * (1 - pi))
+            idx_corr = np.argmin(np.abs([t - corrected_threshold for t in thresholds]))
+            ax.scatter(fpr[idx_corr], tpr[idx_corr], color=colors[i], s=80, zorder=5,
+                       marker='x', linewidths=2,
+                       label=f"{pi_method.upper()} = {corrected_threshold:.2f} ($\\hat{{\\pi}}'={pi:.2f}$)")
+            ax.annotate(f'{pi_method.upper()}', 
+                        (fpr[idx_corr], tpr[idx_corr]), 
+                        textcoords="offset points", 
+                        xytext=(0, 8), 
+                        ha='center', 
+                        fontsize=10, 
+                        color=colors[i])
+        
+        ax.set_aspect('equal', adjustable='box')
+        ax.set_xlim(-0.02, 1.02)
+        ax.set_ylim(-0.02, 1.02)
+        ax.set_title(f"$\\pi={train_pi}, \\pi'={test_pi}$", fontsize=12)
+        ax.set_xlabel('FPR', fontsize=11)
+        ax.set_ylabel('TPR', fontsize=11)
+        ax.grid(True, alpha=0.3)
+        ax.legend(loc='lower right', fontsize=10)
+    
+    fig.suptitle(f"label frequency = {0.5}", fontsize=12, y=1.01)
+    plt.tight_layout()
+    
+    if save and dataset_name:
+        pi_str = "_".join([f"{tp}-{tep}" for tp, tep in pi_pairs])
+        _save_plot(fig, save_folder, dataset_name, pi_str, f"roc_grid_{model}", identifier)
+    
+    plt.show()
+    
+    return fig, axes
