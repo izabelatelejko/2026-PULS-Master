@@ -172,6 +172,7 @@ class PUDatasetBase:
     def copy(self):
         """Create a shallow copy of the dataset with cloned tensors."""
         import copy
+
         new_dataset = copy.copy(self)
         # Clone tensors to avoid modifying the original
         new_dataset.data = self.data.clone()
@@ -196,16 +197,14 @@ class PUDatasetBase:
         )
         # print(len(self.data), len(self.targets), len(self.binary_targets))
         return self.data, self.binary_targets, self.pu_targets
-    
+
     def _replace_unlabeled_with_target_data(self, data, targets):
         """Replaces the unlabeled data in the PU dataset with new data and targets from target dataset."""
         # Leave positive labelled data as is, replace unlabeled data with new data and targets
         # Labelled positive <- pu_targets = 1
         pos_lab_idx = torch.where(self.pu_targets == 1)[0]
         self.data = torch.cat([self.data[pos_lab_idx], data])
-        self.binary_targets = torch.cat(
-            [self.binary_targets[pos_lab_idx], targets]
-        )
+        self.binary_targets = torch.cat([self.binary_targets[pos_lab_idx], targets])
         self.pu_targets = torch.cat(
             [self.pu_targets[pos_lab_idx], -1 * torch.ones(len(data))]
         )
@@ -222,8 +221,6 @@ class PUDatasetBase:
             "n_u": n - P_samples,
             "n_samples": n,
         }
-
-
 
     def _convert_to_shifted_pu_data(
         self, shifted_prior: Optional[float], n_samples: Optional[int] = None
@@ -270,7 +267,9 @@ class PUDatasetBase:
             n_u_pos = int(np.ceil(shifted_prior * U_samples))
             n_u_neg = U_samples - n_u_pos
 
-            assert (n_u_pos + P_samples) <= n_pos, f"n_pos={n_u_pos+P_samples} must be less than {n_pos}"
+            assert (n_u_pos + P_samples) <= n_pos, (
+                f"n_pos={n_u_pos + P_samples} must be less than {n_pos}"
+            )
             assert n_u_neg <= n_neg, f"{n_u_neg=} must be less than {n_neg}"
 
         self.pu_labeler._prior = torch.tensor(n_u_pos / U_samples)
@@ -331,24 +330,23 @@ class PUDatasetBase:
             return self.pu_labeler.prior
         else:
             return None
-        
+
     def get_prior_after_shift(self):
         """Returns the prior after shifting the dataset."""
         unlabeled_idx = torch.where(self.pu_targets == -1)[0]
         unlabeled_targets = self.binary_targets[unlabeled_idx]
         n_pos_in_unlabeled = torch.sum(unlabeled_targets == 1).item()
-        
-        return n_pos_in_unlabeled / len(unlabeled_idx)
 
+        return n_pos_in_unlabeled / len(unlabeled_idx)
 
 
 class DatasetSplitterMixin:
     def get_split_idx(
         self, dataset, split_type: Literal["train", "test"], random_seed, test_ratio=0.2
     ):
-        assert (
-            random_seed is not None
-        ), "random_seed is necessary for a valid train / test split, please provide it"
+        assert random_seed is not None, (
+            "random_seed is necessary for a valid train / test split, please provide it"
+        )
 
         n_train = int((1 - test_ratio) * len(dataset))
         n_test = len(dataset) - n_train

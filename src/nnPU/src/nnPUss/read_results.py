@@ -16,7 +16,7 @@ for directory, subdirs, files in os.walk(RESULTS_DIR):
             if metric_values["label_frequency"] == 0.02:
                 continue
 
-            metric_values["label_frequency"] = f'{metric_values["label_frequency"]:.1f}'
+            metric_values["label_frequency"] = f"{metric_values['label_frequency']:.1f}"
             results.append(metric_values)
 
 results_df = pd.DataFrame.from_records(results)
@@ -181,7 +181,7 @@ for metric in ["accuracy", "precision", "recall", "f1"]:
             column_format="l|c|" + "c" * len(df_half.columns)
         )
         latex_table = merge_latex_headers(latex_table, scaling=0.75)
-        with open(os.path.join(DIR, f"CC-{metric}-p{i+1}.tex"), "w") as f:
+        with open(os.path.join(DIR, f"CC-{metric}-p{i + 1}.tex"), "w") as f:
             f.write(latex_table)
 
 # %%
@@ -232,7 +232,7 @@ for metric in ["accuracy", "precision", "recall", "f1"]:
             column_format="l|c|" + "c" * len(df_half.columns)
         )
         latex_table = merge_latex_headers(latex_table, scaling=0.75)
-        with open(os.path.join(DIR, f"SS-{metric}-p{i+1}.tex"), "w") as f:
+        with open(os.path.join(DIR, f"SS-{metric}-p{i + 1}.tex"), "w") as f:
             f.write(latex_table)
 
 # %%

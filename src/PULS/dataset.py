@@ -15,7 +15,6 @@ from nnPU.dataset import (
 
 
 class Gauss_PULS(PUDatasetBase):
-
     def __init__(
         self,
         root,
@@ -39,7 +38,7 @@ class Gauss_PULS(PUDatasetBase):
         self.data = torch.cat(
             [
                 torch.normal(0, 1, (5000, 10)),
-                torch.normal(0.8, 1, (5000, 10)),  # change back to 0.5
+                torch.normal(0.8, 1, (5000, 10)),
             ]
         )
         self.targets = torch.cat(

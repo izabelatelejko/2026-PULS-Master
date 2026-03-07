@@ -8,7 +8,14 @@ RESULTS_DIR = "output"
 
 MODELS = ["nnpu", "drpu"]
 NNPU_METHODS = ["nnPU", "nnPU+TA+True", "nnPU+TA+KM2", "nnPU+MLLS", "nnPU+Target"]
-ALL_METHODS = NNPU_METHODS + [ "nnPU+TA+DRE", "DRPU", "DRPU+TA+True", "DRPU+TA+KM2", "DRPU+MLLS", "DRPU+Target"]
+ALL_METHODS = NNPU_METHODS + [
+    "nnPU+TA+DRE",
+    "DRPU",
+    "DRPU+TA+True",
+    "DRPU+TA+KM2",
+    "DRPU+MLLS",
+    "DRPU+Target",
+]
 PI_ESTIMATION_METHODS = ["km2", "dre", "mlls_nnpu", "mlls_drpu", "dre_from_mixed"]
 METRICS = [
     "accuracy",
@@ -21,9 +28,10 @@ METRICS = [
     "balanced_accuracy",
 ]
 
+
 class ModelType(str, Enum):
     """Enum for trained model types."""
-    
+
     NNPU = "nnPU"
     DRPU = "DRPU"
     MIXED_NNPU = "Mixed-nnPU"

@@ -28,13 +28,12 @@ sys.modules[f"{__name__}.run_experiment"] = run_experiment
 def __getattr__(name):
     """Lazy import heavy modules to avoid loading all datasets at import time."""
     from importlib import import_module
-    
+
     lazy_modules = ["dataset_configs", "dataset_stats", "main", "read_results"]
-    
+
     if name in lazy_modules:
         module = import_module(f".src.nnPUss.{name}", __name__)
         globals()[name] = module
         sys.modules[f"{__name__}.{name}"] = module
         return module
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
-

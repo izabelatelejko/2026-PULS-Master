@@ -9,21 +9,34 @@ from nnPU.experiment_config import ExperimentConfig
 from nnPU.loss import nnPUccLoss, nnPUccLoss_CE
 
 
-
-def run_experiments(dataset_name, dataset_class, n, label_frequency, train_pi_grid, test_pi_grid, K_values, mean=None, verbose=True):
+def run_experiments(
+    dataset_name,
+    dataset_class,
+    n,
+    label_frequency,
+    train_pi_grid,
+    test_pi_grid,
+    K_values,
+    mean=None,
+    verbose=True,
+):
     """Run all PULS experiments."""
     for train_pi in train_pi_grid:
         for test_pi in test_pi_grid:
             for exp_number in [int(K_value) for K_value in K_values]:
-
-                label_shift_config = LabelShiftConfig(train_prior=train_pi, train_n_samples=n, test_prior=test_pi, test_n_samples=n)
+                label_shift_config = LabelShiftConfig(
+                    train_prior=train_pi,
+                    train_n_samples=n,
+                    test_prior=test_pi,
+                    test_n_samples=n,
+                )
 
                 dataset_config = DatasetConfig(
                     f"{dataset_name}/{label_shift_config.train_n_samples or 'all'}/{f'{mean}/' if mean is not None else ''}{label_shift_config.train_prior or 'all'}/{label_shift_config.test_prior or 'all'}",
                     DatasetClass=dataset_class,
                     PULabelerClass=SCAR_CC_Labeler,
                 )
-                
+
                 experiment_config = ExperimentConfig(
                     PULoss=nnPUccLoss,  # sigmoid loss
                     dataset_config=dataset_config,
@@ -31,7 +44,10 @@ def run_experiments(dataset_name, dataset_class, n, label_frequency, train_pi_gr
                     exp_number=exp_number,
                 )
 
-                experiment = PULSExperiment(experiment_config=experiment_config, label_shift_config=label_shift_config)
+                experiment = PULSExperiment(
+                    experiment_config=experiment_config,
+                    label_shift_config=label_shift_config,
+                )
                 experiment.train_all()
                 experiment.test_shifted()
 
@@ -40,14 +56,19 @@ def run_experiments(dataset_name, dataset_class, n, label_frequency, train_pi_gr
                     print(experiment.test_pis)
 
                 # Test nnPU with CE loss
-                label_shift_config = LabelShiftConfig(train_prior=train_pi, train_n_samples=n, test_prior=test_pi, test_n_samples=n)
+                label_shift_config = LabelShiftConfig(
+                    train_prior=train_pi,
+                    train_n_samples=n,
+                    test_prior=test_pi,
+                    test_n_samples=n,
+                )
 
                 dataset_config = DatasetConfig(
                     f"{dataset_name}-CE/{label_shift_config.train_n_samples or 'all'}/0.8/{label_shift_config.train_prior or 'all'}/{label_shift_config.test_prior or 'all'}",
                     DatasetClass=dataset_class,
                     PULabelerClass=SCAR_CC_Labeler,
                 )
-                
+
                 experiment_config = ExperimentConfig(
                     PULoss=nnPUccLoss_CE,  # cross-entropy loss instead of sigmoid
                     dataset_config=dataset_config,
@@ -55,7 +76,10 @@ def run_experiments(dataset_name, dataset_class, n, label_frequency, train_pi_gr
                     exp_number=exp_number,
                 )
 
-                experiment = PULSExperiment(experiment_config=experiment_config, label_shift_config=label_shift_config)
+                experiment = PULSExperiment(
+                    experiment_config=experiment_config,
+                    label_shift_config=label_shift_config,
+                )
                 experiment.train_nnpu()
                 experiment.test_nnpu_on_shifted()
 

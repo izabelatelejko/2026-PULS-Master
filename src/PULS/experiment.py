@@ -66,7 +66,7 @@ class PULSExperiment(Experiment):
         """Get the model from ModelType enum."""
         model_map = {
             ModelType.NNPU: self.model,
-            ModelType.DRPU: self.ratio_model, 
+            ModelType.DRPU: self.ratio_model,
             ModelType.MIXED_NNPU: self.model_from_mixed,
             ModelType.MIXED_DRPU: self.ratio_model_from_mixed,
         }
@@ -98,7 +98,9 @@ class PULSExperiment(Experiment):
         )
         # Mixed dataset: take labeled positive from train and unlabeled from test
         data["mixed_train"] = data["train"].copy()
-        data["mixed_train"]._replace_unlabeled_with_target_data(data["test"].data, data["test"].binary_targets)
+        data["mixed_train"]._replace_unlabeled_with_target_data(
+            data["test"].data, data["test"].binary_targets
+        )
         self.mixed_set = data["mixed_train"]
         self.train_set = data["train"]
         self.prior = self.train_set.get_prior()
@@ -115,7 +117,9 @@ class PULSExperiment(Experiment):
             self.label_shift_config.test_n_samples or len(data["test"])
         )
         self.label_shift_config.mixed_n_samples = len(data["mixed_train"])
-        self.label_shift_config.mixed_prior = data["mixed_train"].get_prior_after_shift()
+        self.label_shift_config.mixed_prior = data[
+            "mixed_train"
+        ].get_prior_after_shift()
 
         self.train_loader = DataLoader(
             self.train_set,
@@ -194,7 +198,9 @@ class PULSExperiment(Experiment):
             json.dump(self.ratio_train_metrics, f, cls=DictJsonEncoder, indent=4)
         print("Metrics saved to", self.experiment_config.drpu_metrics_file)
 
-    def _train_step_from_mixed(self, epoch: int, kbar: pkbar.Kbar, mixed_prior: float) -> None:
+    def _train_step_from_mixed(
+        self, epoch: int, kbar: pkbar.Kbar, mixed_prior: float
+    ) -> None:
         """Train the nnPU model from mixed data."""
         self.model_from_mixed.train()
         tr_loss = 0
@@ -233,7 +239,9 @@ class PULSExperiment(Experiment):
 
         print("Mixed-nnPU training complete.")
 
-    def _train_step_ratio_from_mixed(self, epoch: int, kbar: pkbar.Kbar, mixed_prior: float) -> None:
+    def _train_step_ratio_from_mixed(
+        self, epoch: int, kbar: pkbar.Kbar, mixed_prior: float
+    ) -> None:
         """Train the DRPU ratio estimator model from mixed data."""
         self.ratio_model_from_mixed.train()
         tr_loss = 0
@@ -280,7 +288,9 @@ class PULSExperiment(Experiment):
 
         return KM2
 
-    def _estimate_test_density_ratio_prior(self, model_type: ModelType = ModelType.DRPU) -> float:
+    def _estimate_test_density_ratio_prior(
+        self, model_type: ModelType = ModelType.DRPU
+    ) -> float:
         """Estimate the prior of test set with density ratio method."""
         model = self.get_model(model_type)
         model.eval()
@@ -290,14 +300,14 @@ class PULSExperiment(Experiment):
             # positive from training set
             for data, target, _ in self.train_loader:
                 data, target = data.to(self.device), target.to(self.device)
-                preds = model(data) 
+                preds = model(data)
                 preds = preds[target == 1]
-                preds_P.append(to_ndarray(preds)) 
+                preds_P.append(to_ndarray(preds))
 
             # unlabeled from shifted data
             for data, target, _ in self.test_loader:
                 data, target = data.to(self.device), target.to(self.device)
-                preds = model(data) 
+                preds = model(data)
                 preds_U.append(to_ndarray(preds))
 
             preds_P = np.concatenate(preds_P)
@@ -310,7 +320,7 @@ class PULSExperiment(Experiment):
 
         return prior
 
-    def _estimate_test_pi(self, use_drpu: bool=True) -> None:
+    def _estimate_test_pi(self, use_drpu: bool = True) -> None:
         """Estimate the test pi values using KM1, KM2, and DRE methods."""
         # True pi
         true_pi = self.label_shift_config.test_prior
@@ -318,7 +328,9 @@ class PULSExperiment(Experiment):
         # Density ratio
         if use_drpu:
             ratio_pi = self._estimate_test_density_ratio_prior()
-            mixed_ratio_pi = self._estimate_test_density_ratio_prior(ModelType.MIXED_DRPU)
+            mixed_ratio_pi = self._estimate_test_density_ratio_prior(
+                ModelType.MIXED_DRPU
+            )
         else:
             ratio_pi = None
             mixed_ratio_pi = None
@@ -388,7 +400,6 @@ class PULSExperiment(Experiment):
 
         return new_pi, adjusted_post, targets, iteration + 1
 
-
     def _test_with_threshold(
         self,
         estimated_pi: Optional[float] = None,
@@ -403,17 +414,15 @@ class PULSExperiment(Experiment):
         if model_type == ModelType.DRPU:
             factor = self.prior.item()
         elif model_type == ModelType.MIXED_DRPU:
-            assert estimated_pi is not None, "Estimated pi must be provided for Mixed-DRPU"
+            assert estimated_pi is not None, (
+                "Estimated pi must be provided for Mixed-DRPU"
+            )
             factor = estimated_pi
 
         # assuming train PI is known
         if estimated_pi is not None and model_type in [ModelType.NNPU, ModelType.DRPU]:
             threshold = (self.prior.item() * (1 - estimated_pi)) / (
-                (
-                    self.prior.item()
-                    + estimated_pi
-                    - 2 * self.prior.item() * estimated_pi
-                )
+                self.prior.item() + estimated_pi - 2 * self.prior.item() * estimated_pi
             )
         else:
             # use default threshold 0.5 if no estimate is provided
@@ -525,9 +534,13 @@ class PULSExperiment(Experiment):
         # plt.title(f'Model outputs distributions with threshold={threshold:.2f} ({model_type.value})')
         # plt.show()
 
-        print(f"Posterior outputs distribution for {model_type.value} with threshold={threshold:.2f}")
+        print(
+            f"Posterior outputs distribution for {model_type.value} with threshold={threshold:.2f}"
+        )
         plt.figure(figsize=(8, 6))
-        plt.hist(posterior_outputs, bins=50, density=True, alpha=0.5, label="Sigmoid outputs")
+        plt.hist(
+            posterior_outputs, bins=50, density=True, alpha=0.5, label="Sigmoid outputs"
+        )
         plt.show()
         plt.figure(figsize=(8, 6))
         sns.histplot(posterior_outputs, bins=50, kde=True, stat="density", alpha=0.5)
@@ -538,10 +551,7 @@ class PULSExperiment(Experiment):
         return metric_values
 
     def _test_with_mlls(
-        self,
-        estimated_pi: float,
-        probs: torch.Tensor,
-        targets: list[torch.Tensor]
+        self, estimated_pi: float, probs: torch.Tensor, targets: list[torch.Tensor]
     ):
         """Testing with MLLS method."""
         threshold = 0.5
@@ -605,7 +615,6 @@ class PULSExperiment(Experiment):
             json.dump(self.metrics, f, cls=DictJsonEncoder, indent=4)
         print("Metrics saved to", self.experiment_config.metrics_file)
 
-
     def test_shifted(self) -> None:
         """Test the model on the shifted data."""
         self._estimate_test_pi()
@@ -634,7 +643,9 @@ class PULSExperiment(Experiment):
         )
         self.metrics["DRPU"], self.metrics["roc_curve"]["drpu"] = (
             self._test_with_threshold(
-                estimated_pi=self.test_pis.dre, model_type=ModelType.DRPU, calculate_roc_curve=True
+                estimated_pi=self.test_pis.dre,
+                model_type=ModelType.DRPU,
+                calculate_roc_curve=True,
             )
         )
 

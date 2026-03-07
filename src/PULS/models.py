@@ -5,7 +5,6 @@ from pydantic import BaseModel
 
 
 class PiEstimates(BaseModel):
-
     true: Optional[float] = None
     km2: Optional[float] = None
     dre: Optional[float] = None
@@ -19,11 +18,9 @@ class PiEstimates(BaseModel):
 
 
 class LabelShiftConfig(BaseModel):
-
     train_prior: Optional[float] = None
     train_n_samples: Optional[int] = None
     test_prior: Optional[float] = None
     test_n_samples: Optional[int] = None
     mixed_prior: Optional[float] = None
     mixed_n_samples: Optional[int] = None
-

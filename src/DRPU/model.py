@@ -26,7 +26,7 @@ class LinearClassifier(nn.Module):
     def forward(self, x):
         x = self.basis(x)
         x = self.l1(x)
-        #if self.activate_output:
+        # if self.activate_output:
         #    x = self.af(x)
         return x
 
@@ -108,8 +108,12 @@ class ConvPoolNet(nn.Module):
     def __init__(self, activate_output=False):
         super(ConvPoolNet, self).__init__()
         self.conv1 = nn.Conv2d(in_channels=3, out_channels=96, kernel_size=5, padding=2)
-        self.conv2 = nn.Conv2d(in_channels=96, out_channels=192, kernel_size=5, padding=2)
-        self.conv3 = nn.Conv2d(in_channels=192, out_channels=192, kernel_size=3, padding=1)
+        self.conv2 = nn.Conv2d(
+            in_channels=96, out_channels=192, kernel_size=5, padding=2
+        )
+        self.conv3 = nn.Conv2d(
+            in_channels=192, out_channels=192, kernel_size=3, padding=1
+        )
         self.conv4 = nn.Conv2d(in_channels=192, out_channels=192, kernel_size=1)
         self.conv5 = nn.Conv2d(in_channels=192, out_channels=10, kernel_size=1)
         self.mp1 = nn.MaxPool2d(kernel_size=2)
@@ -146,7 +150,6 @@ def choose_model(model_name):
         "mnist": MultiLayerPerceptron,
         "fmnist": LeNet,
         "kmnist": LeNet,
-        "cifar": ConvPoolNet
+        "cifar": ConvPoolNet,
     }
     return models[model_name]
-

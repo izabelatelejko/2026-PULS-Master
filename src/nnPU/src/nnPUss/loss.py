@@ -54,9 +54,10 @@ class _PULoss(nn.Module):
                 self.prior = self.prior.cuda()
             else:
                 self.prior = torch.tensor(self.prior, device=x.device)
-        n_positive, n_unlabeled = torch.max(
-            self.min_count, torch.sum(positive)
-        ), torch.max(self.min_count, torch.sum(unlabeled))
+        n_positive, n_unlabeled = (
+            torch.max(self.min_count, torch.sum(positive)),
+            torch.max(self.min_count, torch.sum(unlabeled)),
+        )
         n = n_positive + n_unlabeled
 
         y_positive = self.loss_func(x)
@@ -123,7 +124,7 @@ class nnPUccLoss(_PULoss):
     ):
         super().__init__(prior, loss, gamma, beta, nnPU=True, single_sample=False)
 
-    
+
 class nnPUccLoss_CE(_PULoss):
     name = "nnPUcc_CE"
 
@@ -176,7 +177,6 @@ class uPUssLoss(_PULoss):
         super().__init__(prior, loss, gamma, beta, nnPU=False, single_sample=True)
 
 
-
 class DRPUccLoss(_PULoss):
     name = "DRPUcc"
 
@@ -209,17 +209,17 @@ class DRPUccLoss(_PULoss):
         E_pp = torch.mean(-self.df(y_positive) + self.alpha * self.f_nn(y_positive))
         E_pn = torch.mean(self.f_nn(y_positive))
         E_u = torch.mean(self.f_nn(y_unlabeled))
-        
+
         if torch.isnan(E_pp):
             E_pp = 0
         if torch.isnan(E_pn):
             E_pn = 0
         if torch.isnan(E_u):
             E_u = 0
-        
+
         E_n = E_u - self.alpha * E_pn
         if E_n >= self.beta:
-            loss = E_pp + max(0, E_n) + self.f_dual(torch.tensor(0.))
+            loss = E_pp + max(0, E_n) + self.f_dual(torch.tensor(0.0))
         else:
             loss = -self.gamma * E_n
 

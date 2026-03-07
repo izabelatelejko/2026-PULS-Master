@@ -84,9 +84,9 @@ def test_ss_proportions(
     assert np.abs(empirical_c - c) < EPS, "Invalid label frequency in dataset"
 
     empirical_pi_l = torch.sum(dataset.pu_targets == 1) / len(dataset.pu_targets)
-    assert (
-        np.abs(empirical_pi_l - c * dataset.get_prior()) < EPS
-    ), "Invalid labeled proportion in dataset"
+    assert np.abs(empirical_pi_l - c * dataset.get_prior()) < EPS, (
+        "Invalid labeled proportion in dataset"
+    )
 
 
 @pytest.mark.serial
