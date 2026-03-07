@@ -522,31 +522,27 @@ class PULSExperiment(Experiment):
             }
             return metric_values, roc_curve
 
-        # plot densities
-        import matplotlib.pyplot as plt
-        import seaborn as sns
+        if self.plot_model_outputs:
+            # plot densities
+            import matplotlib.pyplot as plt
+            import seaborn as sns
 
-        outputs = torch.cat(outputs).detach().cpu().numpy()
-        posterior_outputs = torch.cat(posterior_outputs).detach().cpu().numpy()
-        # plt.figure(figsize=(8, 6))
-        # plt.hist(outputs, bins=50, density=True, alpha=0.5, label="Raw outputs", density=True)
-        # plt.axvline(x=threshold, color="r", linestyle="--", label="Threshold")
-        # plt.title(f'Model outputs distributions with threshold={threshold:.2f} ({model_type.value})')
-        # plt.show()
+            outputs = torch.cat(outputs).detach().cpu().numpy()
+            posterior_outputs = torch.cat(posterior_outputs).detach().cpu().numpy()
 
-        print(
-            f"Posterior outputs distribution for {model_type.value} with threshold={threshold:.2f}"
-        )
-        plt.figure(figsize=(8, 6))
-        plt.hist(
-            posterior_outputs, bins=50, density=True, alpha=0.5, label="Sigmoid outputs"
-        )
-        plt.show()
-        plt.figure(figsize=(8, 6))
-        sns.histplot(posterior_outputs, bins=50, kde=True, stat="density", alpha=0.5)
-        # plt.axvline(x=threshold, color="r", linestyle="--", label="Threshold")
-        # plt.title(f'Posteriors distribution with thresh old={threshold:.2f} ({model_type.value})')
-        plt.show()
+            print(
+                f"Posterior outputs distribution for {model_type.value} with threshold={threshold:.2f}"
+            )
+            plt.figure(figsize=(8, 6))
+            plt.hist(
+                posterior_outputs, bins=50, density=True, alpha=0.5, label="Sigmoid outputs"
+            )
+            plt.show()
+            plt.figure(figsize=(8, 6))
+            sns.histplot(posterior_outputs, bins=50, kde=True, stat="density", alpha=0.5)
+            # plt.axvline(x=threshold, color="r", linestyle="--", label="Threshold")
+            # plt.title(f'Posteriors distribution with thresh old={threshold:.2f} ({model_type.value})')
+            plt.show()
 
         return metric_values
 
@@ -571,8 +567,9 @@ class PULSExperiment(Experiment):
         metric_values.true_test_pi = self.label_shift_config.test_prior
         return metric_values
 
-    def test_nnpu_on_shifted(self) -> None:
+    def test_nnpu_on_shifted(self, plot_model_outputs: bool = False) -> None:
         """Test nnPU model on the shifted data."""
+        self.plot_model_outputs = plot_model_outputs
         self._estimate_test_pi(use_drpu=False)
         self.metrics["roc_curve"] = {"nnpu": {}}
 
@@ -615,8 +612,9 @@ class PULSExperiment(Experiment):
             json.dump(self.metrics, f, cls=DictJsonEncoder, indent=4)
         print("Metrics saved to", self.experiment_config.metrics_file)
 
-    def test_shifted(self) -> None:
+    def test_shifted(self, plot_model_outputs: bool = False) -> None:
         """Test the model on the shifted data."""
+        self.plot_model_outputs = plot_model_outputs
         self._estimate_test_pi()
         self.metrics["roc_curve"] = {"nnpu": {}, "drpu": {}}
 
