@@ -3,6 +3,7 @@ output_azure/*
 output_external/*
 .vscode/
 secrets.json
+data/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
