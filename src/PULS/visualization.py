@@ -3,6 +3,7 @@
 import os
 import seaborn as sns
 import matplotlib.pyplot as plt
+from matplotlib.lines import Line2D
 import numpy as np
 
 
@@ -19,6 +20,17 @@ def _save_plot(fig, folder, dataset_name, label_frequency, metric, identifier=No
 
 
 def plot_mae(
+    *args,
+    is_real: bool = False,
+    **kwargs,
+):
+    """Wrapper for plotting MAE with the same style for both synthetic and real data."""
+    if is_real:
+        _plot_mae_real(*args, **kwargs)
+    else:
+        _plot_mae_synth(*args, **kwargs)
+
+def _plot_mae_synth(
     df,
     pi_grid,
     label_frequency,
@@ -166,8 +178,135 @@ def plot_mae(
 
     plt.show()
 
+def _plot_mae_real(
+    df,
+    train_pi,
+    test_pis,
+    label_frequency,
+    verbose=False,
+    show_se=True,
+    K=None,
+    save=False,
+    dataset_name=None,
+    identifier=None,
+    save_folder="results_img",
+):
+    """Plot MAE for real-data setting with a fixed source prior and multiple test priors.
 
-def plot_metric(
+    Args:
+        df: DataFrame with columns 'pi', 'new_pi', 'method', 'mae', and optionally 'se', 'converged'
+        train_pi: Source prior value (float) or a single-value list/tuple
+        test_pis: List of target prior values for x-axis ticks
+        label_frequency: Label frequency value for title
+        verbose: If True, use verbose labels
+        show_se: If True, plot standard error as shaded area (requires 'se' column in df)
+        K: Total number of experiments (used for MLLS convergence annotation)
+        save: If True, save the plot to file
+        dataset_name: Name of the dataset (used for filename)
+        identifier: Additional identifier for filename
+        save_folder: Folder to save plots to
+    """
+    df = df.copy()
+    df = df[np.isclose(df["pi"], train_pi)].sort_values(["new_pi", "method"])
+
+    # Track MLLS convergence info per point for annotations.
+    mlls_annotations = {}  # (new_pi, method) -> "X/K"
+    if "converged" in df.columns and K is not None:
+        mlls_mask = df["method"].str.contains("MLLS|mlls", case=False, na=False)
+        for _, row in df[mlls_mask].iterrows():
+            key = (row["new_pi"], row["method"])
+            mlls_annotations[key] = f"{int(row['converged'])}/{K}"
+
+        # Filter out points where MLLS methods didn't converge (converged == 0).
+        non_converged_mask = mlls_mask & (df["converged"] == 0)
+        df = df[~non_converged_mask]
+
+    sns.set_theme(style="whitegrid")
+    fig, ax = plt.subplots(figsize=(7, 5))
+
+    methods = list(df["method"].unique())
+    palette = sns.color_palette("tab20", n_colors=max(1, len(methods)))
+    colors = dict(zip(methods, palette))
+
+    for method in methods:
+        sub = df[df["method"] == method].sort_values("new_pi")
+        if len(sub) == 0:
+            continue
+
+        c = colors.get(method, "gray")
+        ax.plot(
+            sub["new_pi"],
+            sub["mae"],
+            label=method,
+            marker="o",
+            linewidth=1,
+            linestyle="-",
+            markersize=6,
+            color=c,
+        )
+
+        if show_se and "se" in sub.columns:
+            ax.fill_between(
+                sub["new_pi"],
+                sub["mae"] - sub["se"],
+                sub["mae"] + sub["se"],
+                alpha=0.2,
+                color=c,
+            )
+
+        if K is not None and "MLLS" in method.upper():
+            for _, row in sub.iterrows():
+                key = (row["new_pi"], method)
+                if key in mlls_annotations:
+                    ax.annotate(
+                        mlls_annotations[key],
+                        (row["new_pi"], row["mae"]),
+                        textcoords="offset points",
+                        xytext=(8, -10),
+                        ha="center",
+                        fontsize=8,
+                        color=c,
+                    )
+
+    ax.set_xticks(test_pis)
+    ax.yaxis.grid(True, linestyle="--")
+    ax.xaxis.grid(True, linestyle="--")
+
+    if verbose:
+        ax.set_xlabel("Target class prior")
+        ax.set_ylabel("MAE")
+        ax.set_title(
+            f"Source class prior = {train_pi}, label frequency = {label_frequency}"
+        )
+    else:
+        ax.set_xlabel("$\\pi'$")
+        ax.set_ylabel("MAE")
+        ax.set_title(f"$\\pi$ = {train_pi}, $c = {label_frequency}$")
+
+    ax.legend(title="Method", loc="center left", bbox_to_anchor=(1.0, 0.5), frameon=False)
+    plt.tight_layout()
+
+    if save and dataset_name:
+        _save_plot(
+            fig,
+            save_folder,
+            dataset_name,
+            label_frequency,
+            "mae",
+            identifier,
+        )
+
+    plt.show()
+
+def plot_metric(*args, is_real: bool = False, **kwargs):
+    """Wrapper for plotting any metric (e.g., accuracy, balanced accuracy) with the same style as MAE."""
+    if is_real:
+        _plot_metric_real(*args, **kwargs)
+    else:
+        _plot_metric_synth(*args, **kwargs)
+
+
+def _plot_metric_synth(
     df,
     metric,
     pi_grid,
@@ -313,6 +452,129 @@ def plot_metric(
     if save and dataset_name:
         _save_plot(
             g.figure,
+            save_folder,
+            dataset_name,
+            label_frequency,
+            metric.lower(),
+            identifier,
+        )
+
+    plt.show()
+
+
+def _plot_metric_real(
+    df,
+    metric,
+    train_pi,
+    test_pis,
+    label_frequency,
+    verbose=False,
+    show_se=False,
+    K=None,
+    save=False,
+    dataset_name=None,
+    identifier=None,
+    save_folder="results_img",
+):
+    """Plot metric for real-data setting with a fixed source prior and multiple test priors.
+
+    Args:
+        df: DataFrame with columns 'pi', 'new_pi', 'method', 'average_value', and optionally 'se', 'converged'
+        metric: Name of the metric being plotted (for axis label)
+        train_pi: Source prior value (float) or a single-value list/tuple
+        test_pis: List of target prior values for x-axis ticks
+        label_frequency: Label frequency value for title
+        verbose: If True, use verbose labels
+        show_se: If True, plot standard error as shaded area (requires 'se' column in df)
+        K: Total number of experiments (used for MLLS convergence annotation)
+        save: If True, save the plot to file
+        dataset_name: Name of the dataset (used for filename)
+        identifier: Additional identifier for filename
+        save_folder: Folder to save plots to
+    """
+    df = df.copy()
+    df = df[np.isclose(df["pi"], train_pi)].sort_values(["new_pi", "method"])
+
+    # Track MLLS convergence info per point for annotations.
+    mlls_annotations = {}  # (new_pi, method) -> "X/K"
+    if "converged" in df.columns and K is not None:
+        mlls_mask = df["method"].str.contains("MLLS|mlls", case=False, na=False)
+        for _, row in df[mlls_mask].iterrows():
+            key = (row["new_pi"], row["method"])
+            mlls_annotations[key] = f"{int(row['converged'])}/{K}"
+
+        # Filter out points where MLLS methods didn't converge (converged == 0).
+        non_converged_mask = mlls_mask & (df["converged"] == 0)
+        df = df[~non_converged_mask]
+
+    sns.set_theme(style="whitegrid")
+    fig, ax = plt.subplots(figsize=(7, 5))
+
+    methods = list(df["method"].unique())
+    palette = sns.color_palette("tab20", n_colors=max(1, len(methods)))
+    colors = dict(zip(methods, palette))
+
+    for method in methods:
+        sub = df[df["method"] == method].sort_values("new_pi")
+        if len(sub) == 0:
+            continue
+
+        c = colors.get(method, "gray")
+        ax.plot(
+            sub["new_pi"],
+            sub["average_value"],
+            label=method,
+            marker="o",
+            linewidth=1,
+            linestyle="-",
+            markersize=6,
+            color=c,
+        )
+
+        if show_se and "se" in sub.columns:
+            ax.fill_between(
+                sub["new_pi"],
+                sub["average_value"] - sub["se"],
+                sub["average_value"] + sub["se"],
+                alpha=0.2,
+                color=c,
+            )
+
+        if K is not None and "MLLS" in method.upper():
+            for _, row in sub.iterrows():
+                key = (row["new_pi"], method)
+                if key in mlls_annotations:
+                    ax.annotate(
+                        mlls_annotations[key],
+                        (row["new_pi"], row["average_value"]),
+                        textcoords="offset points",
+                        xytext=(8, -10),
+                        ha="center",
+                        fontsize=8,
+                        color=c,
+                    )
+
+    ax.set_xticks(test_pis)
+    ax.yaxis.grid(True, linestyle="--")
+    ax.xaxis.grid(True, linestyle="--")
+
+    if verbose:
+        ax.set_xlabel("Target class prior")
+        ax.set_ylabel(f"Average {metric}")
+        ax.set_title(
+            f"Source class prior = {train_pi}, label frequency = {label_frequency}"
+        )
+    else:
+        ax.set_xlabel("$\\pi'$")
+        ax.set_ylabel(f"Average {metric}")
+        ax.set_title(f"$\\pi$ = {train_pi}, $c = {label_frequency}$")
+
+    ax.legend(title="Model + Method", loc="center left", bbox_to_anchor=(1.0, 0.5), frameon=False)
+    plt.tight_layout()
+
+    if save and dataset_name:
+        _save_plot(
+            fig,
             save_folder,
             dataset_name,
             label_frequency,
@@ -605,6 +867,92 @@ def plot_roc_grid(
         pi_str = "_".join([f"{tp}-{tep}" for tp, tep in pi_pairs])
         _save_plot(
             fig, save_folder, dataset_name, pi_str, f"roc_grid_{model}", identifier
+        )
+
+    plt.show()
+
+    return fig, axes
+
+
+def plot_accuracy_threshold(
+    metrics_list, 
+    pi_pairs,
+    thresholds_list,
+    save=True,
+    save_folder="results_img",
+    dataset_name='',
+):
+    """Plot accuracy vs threshold for multiple (train_pi, test_pi) pairs in a grid.
+
+    Args:
+        metrics_list: List of 4 dictionaries containing 'accuracy_thresholds' data,
+                      OR a function/callable that takes (train_pi, test_pi) and returns metrics_contents
+        pi_pairs: List of 4 tuples [(train_pi1, test_pi1), (train_pi2, test_pi2), ...].
+        save: If True, save the plot to file
+    """
+
+    n_rows = len(pi_pairs)
+    tick_values = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+    fig, axes = plt.subplots(n_rows, 2, figsize=(12, 4 * n_rows), sharex=True, sharey=True)
+
+    for row, (metrics_contents, (train_pi, test_pi), (km2_threshold, dre_threshold, true_threshold)) in enumerate(zip(metrics_list, pi_pairs, thresholds_list)):
+        left_pos = axes[row][0].get_position()
+        right_pos = axes[row][1].get_position()
+        x_center = (left_pos.x0 + right_pos.x1) / 2
+        y_top = (1 / n_rows - 0.013) * (n_rows - row) - 0.01
+        fig.text(
+            x_center,
+            y_top,
+            f"Source prior $\\pi={train_pi}$, Target prior $\\pi'={test_pi}$",
+            ha="center",
+            va="bottom",
+            fontsize=14,
+        )
+
+        for col, model in enumerate(["nnPU", "DRPU"]):
+            ax = axes[row][col]
+            accuracies = metrics_contents[model]["accuracy"]
+            thresholds = metrics_contents[model]["thresholds"]
+
+            ax.plot(thresholds, accuracies, linewidth=2)
+            ax.axvline(0.5, color="darkgrey", linestyle="--", linewidth=1.6)
+            ax.axvline(true_threshold, color="tab:green", linestyle="--", linewidth=1.6)
+            ax.axvline(km2_threshold, color="tab:orange", linestyle="--", linewidth=1.6)
+            ax.axvline(dre_threshold, color="tab:red", linestyle="--", linewidth=1.6)
+            ax.set_title(model, fontsize=12)
+            ax.set_xlabel("Threshold")
+            ax.set_ylabel("Accuracy")
+            ax.set_xlim(0, 1)
+            ax.set_xticks(tick_values)
+            ax.tick_params(axis="x", labelbottom=True)
+            ax.grid(alpha=0.3)
+
+    legend_handles = [
+        Line2D([0], [0], color="tab:green", linestyle="--", linewidth=1.8, label="True"),
+        Line2D([0], [0], color="tab:orange", linestyle="--", linewidth=1.8, label="KM2"),
+        Line2D([0], [0], color="tab:red", linestyle="--", linewidth=1.8, label="DRE"),
+        Line2D([0], [0], color="darkgrey", linestyle="--", linewidth=1.8, label="1/2"),
+    ]
+    fig.legend(
+        handles=legend_handles,
+        loc="upper center",
+        ncol=4,
+        frameon=False,
+        bbox_to_anchor=(0.2, 0.93, 0.6, 0.05),
+        mode="expand",
+        fontsize=12,
+    )
+
+    fig.tight_layout(h_pad=3.0, rect=[0, 0, 1, 0.94])
+
+    if save:
+        pi_str = "_".join([f"{tp}-{tep}" for tp, tep in pi_pairs])
+        _save_plot(
+            fig,
+            save_folder,
+            dataset_name=f"{dataset_name}_accuracy_threshold",
+            label_frequency=pi_str,
+            metric="",
         )
 
     plt.show()

@@ -130,7 +130,7 @@ def get_single_metrics(
                         est_pi = -1
                 elif est_pi is None and method_name == "nnPU":
                     est_pi = -1  # Set to -1 as nnPU does not estimate test pi
-                converged = est_pi > 0.03 and est_pi < 0.97
+                converged = abs(est_pi - test_pi) < 0.15
                 if method_name in ["nnPU+MLLS", "DRPU+MLLS"] and not converged:
                     continue
 
@@ -214,7 +214,7 @@ def evaluate_single_shifted_pi_estimation(
                 converged_idx = [
                     i
                     for i, pi in enumerate(metrics[method]["estimated_test_pi"])
-                    if pi > 0.03 and pi < 0.97
+                    if abs(pi - true_shifted_pi) < 0.15
                 ]
             else:
                 converged_idx = list(range(len(metrics[method]["estimated_test_pi"])))

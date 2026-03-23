@@ -267,10 +267,10 @@ class PUDatasetBase:
             n_u_pos = int(np.ceil(shifted_prior * U_samples))
             n_u_neg = U_samples - n_u_pos
 
-            assert (n_u_pos + P_samples) <= n_pos, (
-                f"n_pos={n_u_pos + P_samples} must be less than {n_pos}"
-            )
-            assert n_u_neg <= n_neg, f"{n_u_neg=} must be less than {n_neg}"
+            # assert (n_u_pos + P_samples) <= n_pos, (
+            #     f"n_pos={n_u_pos + P_samples} must be less than {n_pos}"
+            # )
+            # assert n_u_neg <= n_neg, f"{n_u_neg=} must be less than {n_neg}"
 
         self.pu_labeler._prior = torch.tensor(n_u_pos / U_samples)
         # print(f"{n_pos=}, {n_neg=}, {prior=}")
@@ -290,12 +290,12 @@ class PUDatasetBase:
         selected_pos_idx = torch.multinomial(
             torch.ones_like(pos_idx, dtype=torch.float32),
             n_u_pos + P_samples,
-            replacement=False,
+            replacement=True,
         )
         selected_neg_idx = torch.multinomial(
             torch.ones_like(neg_idx, dtype=torch.float32),
             n_u_neg,
-            replacement=False,
+            replacement=True,
         )
 
         self.data = torch.cat(

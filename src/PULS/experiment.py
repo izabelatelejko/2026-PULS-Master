@@ -405,6 +405,7 @@ class PULSExperiment(Experiment):
         estimated_pi: Optional[float] = None,
         model_type: ModelType = ModelType.NNPU,
         calculate_roc_curve: bool = False,
+        provided_threshold: Optional[float] = None,
     ):
         """Testing with Threshold Adjustment method."""
         model = self.get_model(model_type)
@@ -428,6 +429,9 @@ class PULSExperiment(Experiment):
             # use default threshold 0.5 if no estimate is provided
             # set threshold to 0.5 for Mixed setup
             threshold = 0.5
+
+        if provided_threshold is not None:
+            threshold = provided_threshold
 
         test_loss = 0
         correct = 0
@@ -522,13 +526,15 @@ class PULSExperiment(Experiment):
             }
             return metric_values, roc_curve
 
-        if self.plot_model_outputs:
+        if self.plot_model_outputs and provided_threshold is None:
             # plot densities
             import matplotlib.pyplot as plt
             import seaborn as sns
 
             outputs = torch.cat(outputs).detach().cpu().numpy()
             posterior_outputs = torch.cat(posterior_outputs).detach().cpu().numpy()
+            targets_01 = np.where(targets == 1, 1, 0)
+            errors = np.abs(posterior_outputs - targets_01)
 
             print(
                 f"Posterior outputs distribution for {model_type.value} with threshold={threshold:.2f}"
@@ -543,6 +549,14 @@ class PULSExperiment(Experiment):
             # plt.axvline(x=threshold, color="r", linestyle="--", label="Threshold")
             # plt.title(f'Posteriors distribution with thresh old={threshold:.2f} ({model_type.value})')
             plt.show()
+
+            print(
+                f"Errors distribution for {model_type.value}"
+            )
+            plt.figure(figsize=(8, 6))
+            sns.histplot(errors, bins=50, kde=True, stat="density", alpha=0.5)
+            plt.show() 
+
 
         return metric_values
 
@@ -566,6 +580,19 @@ class PULSExperiment(Experiment):
         metric_values.threshold = threshold
         metric_values.true_test_pi = self.label_shift_config.test_prior
         return metric_values
+    
+    def test_ta_on_grid(self) -> None:
+        """Test threshold adjustment on a grid of thresholds."""
+        self.metrics["accuracy-ta-grid"] = {"nnPU": {"accuracy": [], "thresholds": []}, "DRPU": {"accuracy": [], "thresholds": []}}
+        for model in [ModelType.NNPU, ModelType.DRPU]:
+            for threshold in np.linspace(0, 1, 101):
+                metric_values = self._test_with_threshold(
+                    model_type=model, provided_threshold=threshold
+                )
+                accuracy = metric_values.accuracy
+                print(model.value, f"Threshold: {threshold:.2f}, Accuracy: {accuracy:.4f}")
+                self.metrics["accuracy-ta-grid"][model.value]["accuracy"].append(accuracy)
+                self.metrics["accuracy-ta-grid"][model.value]["thresholds"].append(threshold)
 
     def test_nnpu_on_shifted(self, plot_model_outputs: bool = False) -> None:
         """Test nnPU model on the shifted data."""
@@ -663,6 +690,9 @@ class PULSExperiment(Experiment):
         self.metrics["DRPU+TA+KM2"] = self._test_with_threshold(
             estimated_pi=self.test_pis.km2, model_type=ModelType.DRPU
         )
+        
+        # Threshold adjustment on grid of thresholds
+        self.test_ta_on_grid()
 
         # MLLS
         self.metrics["nnPU+MLLS"] = self._test_with_mlls(
