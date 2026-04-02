@@ -11,6 +11,9 @@ from nnPU.dataset import (
     MNIST_PU,
     FashionMNIST_PU,
     ChestXRay_PU,
+    TBElectricity_PU,
+    TBCovertype_PU,
+    SMSSpam_PU
 )
 
 
@@ -112,6 +115,96 @@ class FashionMNIST_PULS(FashionMNIST_PU):
 
 
 class ChestXRay_PULS(ChestXRay_PU):
+    def __init__(
+        self,
+        root,
+        pu_labeler: PULabeler,
+        target_transformer: BinaryTargetTransformer = BinaryTargetTransformer(
+            included_classes=np.arange(2),
+            positive_classes=[1],
+        ),
+        train=True,
+        download=True,  # ignored
+        random_seed=None,
+        shifted_prior: Optional[float] = None,
+        n_samples: Optional[int] = None,
+    ):
+        super().__init__(
+            root=root,
+            pu_labeler=pu_labeler,
+            target_transformer=target_transformer,
+            train=train,
+            download=download,
+            random_seed=random_seed,
+        )
+
+        self._convert_to_shifted_pu_data(shifted_prior, n_samples)
+
+    def _convert_to_pu_data(self):
+        pass
+
+
+class TBElectricity_PULS(TBElectricity_PU):
+    def __init__(
+        self,
+        root,
+        pu_labeler: PULabeler,
+        target_transformer: BinaryTargetTransformer = BinaryTargetTransformer(
+            included_classes=np.arange(2),
+            positive_classes=[1],
+        ),
+        train=True,
+        download=True,  # ignored
+        random_seed=None,
+        shifted_prior: Optional[float] = None,
+        n_samples: Optional[int] = None,
+    ):
+        super().__init__(
+            root=root,
+            pu_labeler=pu_labeler,
+            target_transformer=target_transformer,
+            train=train,
+            download=download,
+            random_seed=random_seed,
+        )
+
+        self._convert_to_shifted_pu_data(shifted_prior, n_samples)
+
+    def _convert_to_pu_data(self):
+        pass
+
+
+class TBCovertype_PULS(TBCovertype_PU):
+    def __init__(
+        self,
+        root,
+        pu_labeler: PULabeler,
+        target_transformer: BinaryTargetTransformer = BinaryTargetTransformer(
+            included_classes=np.arange(2),
+            positive_classes=[1],
+        ),
+        train=True,
+        download=True,  # ignored
+        random_seed=None,
+        shifted_prior: Optional[float] = None,
+        n_samples: Optional[int] = None,
+    ):
+        super().__init__(
+            root=root,
+            pu_labeler=pu_labeler,
+            target_transformer=target_transformer,
+            train=train,
+            download=download,
+            random_seed=random_seed,
+        )
+
+        self._convert_to_shifted_pu_data(shifted_prior, n_samples)
+
+    def _convert_to_pu_data(self):
+        pass
+
+
+class SMSSpam_PULS(SMSSpam_PU):
     def __init__(
         self,
         root,

@@ -528,7 +528,7 @@ class SMSSpam_PU(PUDatasetBase, DatasetSplitterMixin, SentenceTransformersDatase
     ):
         super().__init__(
             root=root,
-            dataset_hub_path="sms_spam",
+            dataset_hub_path="ucirvine/sms_spam",
             dataset_name="SMSSpam",
             text_col="sms",
             train=True,

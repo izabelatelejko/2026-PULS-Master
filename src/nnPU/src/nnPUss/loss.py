@@ -16,7 +16,7 @@ class _PULoss(nn.Module):
     ):
         super().__init__()
         if not 0 < prior < 1:
-            raise NotImplementedError("The class prior should be in (0, 1)")
+            raise NotImplementedError(f"The class prior should be in (0, 1), but got {prior}")
         self.prior = prior
         self.gamma = gamma
         self.beta = beta

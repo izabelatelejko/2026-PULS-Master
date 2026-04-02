@@ -706,6 +706,10 @@ class PULSExperiment(Experiment):
         self.metrics["nnPU+Target"] = self._test_with_threshold(
             estimated_pi=None, model_type=ModelType.MIXED_NNPU
         )
+        print(self.test_pis.dre_from_mixed)
+        if self.test_pis.dre_from_mixed - 0.00001 < 0:
+            print("Warning: Estimated pi from mixed-DRPU is negative, setting to 0")
+            self.test_pis.dre_from_mixed = 0.0001
         self.metrics["DRPU+Target"] = self._test_with_threshold(
             estimated_pi=self.test_pis.dre_from_mixed, model_type=ModelType.MIXED_DRPU
         )

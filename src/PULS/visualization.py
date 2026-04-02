@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import numpy as np
 
+from .evaluation import evaluate_all_metrics, evaluate_shifted_pi_estimation
+
 
 def _save_plot(fig, folder, dataset_name, label_frequency, metric, identifier=None):
     """Save plot to file with unique name."""
@@ -583,6 +585,369 @@ def _plot_metric_real(
         )
 
     plt.show()
+
+
+def plot_real_accuracy_grid(
+    metric="accuracy",
+    dataset_names=None,
+    mean=None,
+    n=5000,
+    label_frequency=0.5,
+    train_pis=(0.5,),
+    test_pis=(0.2, 0.4, 0.6, 0.8),
+    methods=None,
+    verbose=True,
+    show_se=True,
+    K=10,
+    save=False,
+    save_plot_name="real_datasets",
+    identifier=None,
+    save_folder="results_img",
+    figsize=(11, 13),
+):
+    """Plot average metric for six real datasets in a 2x3 grid."""
+    if dataset_names is None:
+        dataset_names = [
+            "MNIST",
+            "FashionMNIST",
+            "ChestXRay",
+            "Electricity",
+            "Covertype",
+            "SMSSpam",
+        ]
+
+    if methods is None:
+        methods = [
+            "DRPU",
+            "nnPU",
+            "nnPU+TA+KM2",
+            "DRPU+TA+KM2",
+            "nnPU+Target",
+        ]
+
+    if len(dataset_names) != 6:
+        raise ValueError("dataset_names must contain exactly 6 datasets for a 2x3 grid.")
+
+    train_pi = train_pis[0]
+
+    sns.set_theme(style="whitegrid")
+    fig, axes = plt.subplots(3, 2, figsize=figsize, sharex=True, sharey=True)
+    axes_flat = axes.flatten()
+
+    palette = sns.color_palette("tab20", n_colors=max(1, len(methods)))
+    colors = dict(zip(methods, palette))
+    legend_handles = {}
+
+    for ax, dataset in zip(axes_flat, dataset_names):
+        try:
+            df_metric = evaluate_all_metrics(
+                dataset,
+                mean,
+                n,
+                label_frequency,
+                train_pis,
+                test_pis,
+                convert_to_df=True,
+                single_exp=False,
+            )
+        except FileNotFoundError:
+            ax.set_title(dataset, fontsize=13)
+            ax.text(
+                0.5,
+                0.5,
+                "Missing results",
+                ha="center",
+                va="center",
+                fontsize=12,
+                transform=ax.transAxes,
+            )
+            ax.set_xticks(test_pis)
+            ax.grid(True, linestyle="--", alpha=0.7)
+            ax.tick_params(axis="both", labelsize=12)
+            continue
+
+        df_metric = df_metric[
+            (df_metric["metric"] == metric)
+            & (df_metric["method"].isin(methods))
+            & (np.isclose(df_metric["pi"], train_pi))
+        ].sort_values(["new_pi", "method"])
+
+        if df_metric.empty:
+            ax.set_title(dataset, fontsize=13)
+            ax.text(
+                0.5,
+                0.5,
+                "No matching rows",
+                ha="center",
+                va="center",
+                fontsize=12,
+                transform=ax.transAxes,
+            )
+            ax.set_xticks(test_pis)
+            ax.grid(True, linestyle="--", alpha=0.7)
+            ax.tick_params(axis="both", labelsize=12)
+            continue
+
+        for method in methods:
+            sub = df_metric[df_metric["method"] == method].sort_values("new_pi")
+            if len(sub) == 0:
+                continue
+
+            color = colors.get(method, "gray")
+            (line,) = ax.plot(
+                sub["new_pi"],
+                sub["average_value"],
+                label=method,
+                marker="o",
+                linewidth=1.5,
+                linestyle="-",
+                markersize=6,
+                color=color,
+            )
+
+            if method not in legend_handles:
+                legend_handles[method] = line
+
+            if show_se and "se" in sub.columns:
+                ax.fill_between(
+                    sub["new_pi"],
+                    sub["average_value"] - sub["se"],
+                    sub["average_value"] + sub["se"],
+                    alpha=0.2,
+                    color=color,
+                )
+
+            if K is not None and "converged" in sub.columns and "MLLS" in method.upper():
+                for _, row in sub.iterrows():
+                    ax.annotate(
+                        f"{int(row['converged'])}/{K}",
+                        (row["new_pi"], row["average_value"]),
+                        textcoords="offset points",
+                        xytext=(8, -10),
+                        ha="center",
+                        fontsize=12,
+                        color=color,
+                    )
+
+        ax.set_title(dataset, fontsize=13)
+        ax.set_xticks(test_pis)
+        ax.yaxis.grid(True, linestyle="--", alpha=0.7)
+        ax.xaxis.grid(True, linestyle="--", alpha=0.7)
+        ax.tick_params(axis="both", labelsize=12)
+
+    for idx, ax in enumerate(axes_flat):
+        row_idx, col_idx = divmod(idx, 2)
+        ax.set_xlabel("Target class prior", fontsize=12)
+        ax.tick_params(axis="x", labelbottom=True)
+        if col_idx == 0:
+            ax.set_ylabel(f"Average {metric.capitalize()}", fontsize=12)
+
+    if legend_handles:
+        fig.legend(
+            list(legend_handles.values()),
+            list(legend_handles.keys()),
+            loc="upper center",
+            ncol=max(1, len(legend_handles)),
+            frameon=False,
+            bbox_to_anchor=(0.5, 0.98),
+            title="Method",
+            fontsize=12,
+            title_fontsize=12,
+        )
+
+    fig.tight_layout(rect=[0, 0, 1, 0.93])
+
+    if save:
+        _save_plot(
+            fig,
+            save_folder,
+            save_plot_name,
+            label_frequency,
+            metric,
+            identifier,
+        )
+
+    plt.show()
+
+    return fig, axes
+
+
+def plot_real_mae_grid(
+    dataset_names=None,
+    mean=None,
+    n=5000,
+    label_frequency=0.5,
+    train_pis=(0.5,),
+    test_pis=(0.2, 0.4, 0.6, 0.8),
+    methods=None,
+    verbose=True,
+    show_se=True,
+    K=10,
+    save=False,
+    save_plot_name="real_datasets_mae",
+    identifier=None,
+    save_folder="results_img",
+    figsize=(11, 13),
+):
+    """Plot MAE for six real datasets in a 2x3 grid."""
+    if dataset_names is None:
+        dataset_names = [
+            "MNIST",
+            "FashionMNIST",
+            "ChestXRay",
+            "Electricity",
+            "Covertype",
+            "SMSSpam",
+        ]
+
+    if methods is None:
+        methods = ["KM2", "DRE"]
+
+    if len(dataset_names) != 6:
+        raise ValueError("dataset_names must contain exactly 6 datasets for a 2x3 grid.")
+
+    train_pi = train_pis[0]
+
+    sns.set_theme(style="whitegrid")
+    fig, axes = plt.subplots(3, 2, figsize=figsize, sharex=True, sharey=True)
+    axes_flat = axes.flatten()
+
+    palette = sns.color_palette("tab20", n_colors=max(1, len(methods)))
+    colors = dict(zip(methods, palette))
+    legend_handles = {}
+
+    for ax, dataset in zip(axes_flat, dataset_names):
+        try:
+            df_mae = evaluate_shifted_pi_estimation(
+                dataset,
+                mean,
+                n,
+                label_frequency,
+                train_pis,
+                test_pis,
+                convert_to_df=True,
+                single_exp=False,
+                nnpu_only=False,
+            )
+        except FileNotFoundError:
+            ax.set_title(dataset, fontsize=13)
+            ax.text(
+                0.5,
+                0.5,
+                "Missing results",
+                ha="center",
+                va="center",
+                fontsize=12,
+                transform=ax.transAxes,
+            )
+            ax.set_xticks(test_pis)
+            ax.grid(True, linestyle="--", alpha=0.7)
+            ax.tick_params(axis="both", labelsize=12)
+            continue
+
+        df_mae = df_mae[
+            (df_mae["method"].isin(methods))
+            & (np.isclose(df_mae["pi"], train_pi))
+        ].sort_values(["new_pi", "method"])
+
+        if df_mae.empty:
+            ax.set_title(dataset, fontsize=13)
+            ax.text(
+                0.5,
+                0.5,
+                "No matching rows",
+                ha="center",
+                va="center",
+                fontsize=12,
+                transform=ax.transAxes,
+            )
+            ax.set_xticks(test_pis)
+            ax.grid(True, linestyle="--", alpha=0.7)
+            ax.tick_params(axis="both", labelsize=12)
+            continue
+
+        for method in methods:
+            sub = df_mae[df_mae["method"] == method].sort_values("new_pi")
+            if len(sub) == 0:
+                continue
+
+            color = colors.get(method, "gray")
+            (line,) = ax.plot(
+                sub["new_pi"],
+                sub["mae"],
+                label=method,
+                marker="o",
+                linewidth=1.5,
+                linestyle="-",
+                markersize=6,
+                color=color,
+            )
+
+            if method not in legend_handles:
+                legend_handles[method] = line
+
+            if show_se and "se" in sub.columns:
+                ax.fill_between(
+                    sub["new_pi"],
+                    sub["mae"] - sub["se"],
+                    sub["mae"] + sub["se"],
+                    alpha=0.2,
+                    color=color,
+                )
+
+            if K is not None and "converged" in sub.columns and "MLLS" in method.upper():
+                for _, row in sub.iterrows():
+                    ax.annotate(
+                        f"{int(row['converged'])}/{K}",
+                        (row["new_pi"], row["mae"]),
+                        textcoords="offset points",
+                        xytext=(8, -10),
+                        ha="center",
+                        fontsize=12,
+                        color=color,
+                    )
+
+        ax.set_title(dataset, fontsize=13)
+        ax.set_xticks(test_pis)
+        ax.yaxis.grid(True, linestyle="--", alpha=0.7)
+        ax.xaxis.grid(True, linestyle="--", alpha=0.7)
+        ax.tick_params(axis="both", labelsize=12)
+
+    for idx, ax in enumerate(axes_flat):
+        _, col_idx = divmod(idx, 2)
+        ax.set_xlabel("Target class prior", fontsize=12)
+        ax.tick_params(axis="x", labelbottom=True)
+        if col_idx == 0:
+            ax.set_ylabel("MAE", fontsize=12)
+
+    if legend_handles:
+        fig.legend(
+            list(legend_handles.values()),
+            list(legend_handles.keys()),
+            loc="upper center",
+            ncol=max(1, len(legend_handles)),
+            frameon=False,
+            bbox_to_anchor=(0.5, 0.98),
+            title="Method",
+            fontsize=12,
+            title_fontsize=12,
+        )
+
+    fig.tight_layout(rect=[0, 0, 1, 0.93])
+
+    if save:
+        _save_plot(
+            fig,
+            save_folder,
+            save_plot_name,
+            label_frequency,
+            "mae",
+            identifier,
+        )
+
+    plt.show()
+
+    return fig, axes
 
 
 def plot_roc(
