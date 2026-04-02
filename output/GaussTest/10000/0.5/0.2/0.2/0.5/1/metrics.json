@@ -1,0 +1,1 @@
+{"model": "nnPUcc", "dataset": "GaussTest/10000/0.5/0.2/0.2", "label_frequency": 0.5, "exp_number": 1, "accuracy": 0.9214, "precision": 0.8270474137931034, "recall": 0.7675, "f1": 0.7961618257261411, "auc": 0.8636875, "loss": 0.10323740032654774, "epoch": 49, "stopping_epoch": null, "time": 19.402901499997824}
