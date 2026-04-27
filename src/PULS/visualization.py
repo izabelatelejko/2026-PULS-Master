@@ -21,6 +21,59 @@ def _save_plot(fig, folder, dataset_name, label_frequency, metric, identifier=No
     print(f"Saved plot to {filepath}")
 
 
+def _base_method_name(method: str) -> str:
+    """Normalize method names by removing optional suffixes like '(Sig)' or '(CE)'."""
+    return method.split(" (")[0].strip()
+
+
+def _get_method_marker(method: str) -> str:
+    """Return marker shape based on method family."""
+    base_method = _base_method_name(method)
+
+    triangle_methods = {
+        "nnPU",
+        "nnPU+KM2",
+    }
+    circle_methods = {
+        "nnPU+TA+True",
+        "nnPU+TA+KM2",
+        "nnPU+TA+DRE",
+        "DRPU",
+        "DRPU+TA+True",
+        "DRPU+TA+KM2",
+    }
+    diamond_methods = {
+        "nnPU+MLLS",
+        "DRPU+MLLS",
+    }
+    other_methods = {
+        "DRPU+Target",
+        "nnPU+Target",
+    }
+
+    if base_method in triangle_methods:
+        return "^"
+    if base_method in circle_methods:
+        return "o"
+    if base_method in diamond_methods:
+        return "d"
+    if base_method in other_methods:
+        return "*"
+    return "o"
+
+
+def _get_method_markersize(method: str, default_size: float) -> float:
+    """Make triangle markers slightly larger for readability."""
+    marker = _get_method_marker(method)
+    if marker == "^":
+        return default_size + 1
+    elif marker == "d":
+        return default_size + 1.5
+    elif marker == "*":
+        return default_size + 2
+    return default_size
+
+
 def plot_mae(
     *args,
     is_real: bool = False,
@@ -74,7 +127,7 @@ def _plot_mae_synth(
         df = df[~non_converged_mask]
 
     sns.set_theme(style="whitegrid")
-    g = sns.FacetGrid(df, col="pi", col_wrap=2, height=4, sharey=True)
+    g = sns.FacetGrid(df, col="pi", col_wrap=2, height=4, sharex=False, sharey=True)
     palette = sns.color_palette("tab20", n_colors=df["method"].nunique())
     colors = dict(zip(df["method"].unique(), palette))
 
@@ -91,10 +144,10 @@ def _plot_mae_synth(
                     sub["new_pi"],
                     sub["mae"],
                     label=method,
-                    marker="o",
+                    marker=_get_method_marker(method),
                     linewidth=1,
                     linestyle="-",
-                    markersize=5,
+                    markersize=_get_method_markersize(method, 5),
                     color=c,
                 )
                 plt.fill_between(
@@ -133,10 +186,10 @@ def _plot_mae_synth(
                     sub["new_pi"],
                     sub["mae"],
                     label=method,
-                    marker="o",
+                    marker=_get_method_marker(method),
                     linewidth=1,
                     linestyle="-",
-                    markersize=5,
+                    markersize=_get_method_markersize(method, 5),
                     color=c,
                 )
                 # Add convergence annotations for MLLS methods
@@ -240,10 +293,10 @@ def _plot_mae_real(
             sub["new_pi"],
             sub["mae"],
             label=method,
-            marker="o",
+            marker=_get_method_marker(method),
             linewidth=1,
             linestyle="-",
-            markersize=6,
+            markersize=_get_method_markersize(method, 6),
             color=c,
         )
 
@@ -369,10 +422,10 @@ def _plot_metric_synth(
                     sub["new_pi"],
                     sub["average_value"],
                     label=method,
-                    marker="o",
+                    marker=_get_method_marker(method),
                     linewidth=1,
                     linestyle="-",
-                    markersize=5,
+                    markersize=_get_method_markersize(method, 5),
                     color=c,
                 )
                 plt.fill_between(
@@ -411,10 +464,10 @@ def _plot_metric_synth(
                     sub["new_pi"],
                     sub["average_value"],
                     label=method,
-                    marker="o",
+                    marker=_get_method_marker(method),
                     linewidth=1,
                     linestyle="-",
-                    markersize=6,
+                    markersize=_get_method_markersize(method, 6),
                     color=c,
                 )
                 # Add convergence annotations for MLLS methods
@@ -435,7 +488,15 @@ def _plot_metric_synth(
         g.map_dataframe(plot_lineplots)
 
     g.set(xticks=pi_grid)
+
     for ax in g.axes.flatten():
+        if verbose:
+            ax.set_xlabel("Target class prior")
+        else:
+            ax.set_xlabel("$\\pi'$")
+        ax.set_xticks(pi_grid)
+        ax.xaxis.label.set_visible(True)
+        ax.tick_params(axis="x", labelbottom=True)
         ax.yaxis.grid(True, linestyle="--")
         ax.xaxis.grid(True, linestyle="--")
 
@@ -526,10 +587,10 @@ def _plot_metric_real(
             sub["new_pi"],
             sub["average_value"],
             label=method,
-            marker="o",
+            marker=_get_method_marker(method),
             linewidth=1,
             linestyle="-",
-            markersize=6,
+            markersize=_get_method_markersize(method, 6),
             color=c,
         )
 
@@ -698,10 +759,10 @@ def plot_real_accuracy_grid(
                 sub["new_pi"],
                 sub["average_value"],
                 label=method,
-                marker="o",
+                marker=_get_method_marker(method),
                 linewidth=1.5,
                 linestyle="-",
-                markersize=6,
+                markersize=_get_method_markersize(method, 6),
                 color=color,
             )
 
@@ -876,10 +937,10 @@ def plot_real_mae_grid(
                 sub["new_pi"],
                 sub["mae"],
                 label=method,
-                marker="o",
+                marker=_get_method_marker(method),
                 linewidth=1.5,
                 linestyle="-",
-                markersize=6,
+                markersize=_get_method_markersize(method, 6),
                 color=color,
             )
 
@@ -1377,7 +1438,7 @@ def plot_boxplots_mae(
         x='method',
         y='mae',
         ax=ax,
-        color='steelblue',
+        color='darkorange',
         showfliers=False,
     )
     ax.set_xlabel('Method')

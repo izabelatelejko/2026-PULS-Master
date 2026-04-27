@@ -33,7 +33,11 @@ def find_nearest_valid_distribution(u_alpha, kernel, initial=None, reg=0):
     h = matrix(np.zeros(n))
     dims = {"l": n, "q": [], "s": []}
     solvers.options["show_progress"] = False
-    solution = solvers.coneqp(P, q, G, h, dims, A, b, initvals=initial)
+    try:
+        solution = solvers.coneqp(P, q, G, h, dims, A, b, initvals=initial)
+    except ValueError:
+        # Warm-start iterates can become numerically invalid for some kernels.
+        solution = solvers.coneqp(P + 1e-8 * np.eye(n), q, G, h, dims, A, b)
     distance_sqd = (
         solution["primal objective"] + np.dot(u_alpha.T, np.dot(kernel, u_alpha))[0, 0]
     )

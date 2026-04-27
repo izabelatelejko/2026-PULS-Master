@@ -333,7 +333,7 @@ class PULSExperiment(Experiment):
     def _estimate_train_km_prior(self) -> float:
         """Estimate the prior of training set with KM2 method."""
         pos = self.train_set.data.clone()[self.train_set.pu_targets == 1].numpy()
-        unl = self.train_set.data.clone().numpy()
+        unl = self.train_set.data.clone()[self.train_set.pu_targets == -1].numpy()
         KM2 = KM2_estimate(pos, unl)
 
         return KM2
@@ -799,6 +799,8 @@ class PULSExperiment(Experiment):
         self.metrics["nnPU+KM2"] = self._test_with_threshold(
             estimated_pi=None, model_type=ModelType.NNPU_KM2
         )
+        if "test_pis" not in self.metrics:
+            self.metrics["test_pis"] = {}
         self.metrics["test_pis"]["train_km2"] = self.train_km2
 
         with open(self.experiment_config.metrics_file, "w") as f:

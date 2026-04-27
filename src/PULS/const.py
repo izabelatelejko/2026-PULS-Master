@@ -7,7 +7,7 @@ K = 10  # Number of experiments for each setting
 RESULTS_DIR = "output"
 
 MODELS = ["nnpu", "drpu"]
-NNPU_METHODS = ["nnPU", "nnPU+TA+True", "nnPU+TA+KM2", "nnPU+MLLS", "nnPU+Target", "nnPU+KM2"]
+NNPU_METHODS = ["nnPU", "nnPU+KM2", "nnPU+TA+True", "nnPU+TA+KM2", "nnPU+MLLS", "nnPU+Target"]
 ALL_METHODS = NNPU_METHODS + [
     "nnPU+TA+DRE",
     "DRPU",
