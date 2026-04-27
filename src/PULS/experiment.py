@@ -37,11 +37,20 @@ class PULSExperiment(Experiment):
         self.label_shift_config = label_shift_config
 
         super().__init__(experiment_config)
+
         # models
+        self.nnpu_km2_model = PUModel(self.n_inputs, activate_output=False)
         self.ratio_model = PUModel(self.n_inputs, activate_output=True)
         self.model_from_mixed = PUModel(self.n_inputs, activate_output=False)
         self.ratio_model_from_mixed = PUModel(self.n_inputs, activate_output=True)
+         
         # optimizers
+        self.nnpu_km2_optimizer = Adam(
+            self.nnpu_km2_model.parameters(),
+            lr=self.experiment_config.dataset_config.learning_rate,
+            weight_decay=0.005,
+            betas=(0.9, 0.999),
+        )
         self.ratio_optimizer = Adam(
             self.ratio_model.parameters(),
             lr=self.experiment_config.dataset_config.learning_rate,
@@ -69,6 +78,7 @@ class PULSExperiment(Experiment):
             ModelType.DRPU: self.ratio_model,
             ModelType.MIXED_NNPU: self.model_from_mixed,
             ModelType.MIXED_DRPU: self.ratio_model_from_mixed,
+            ModelType.NNPU_KM2: self.nnpu_km2_model,
         }
         return model_map[model_type]
 
@@ -198,6 +208,46 @@ class PULSExperiment(Experiment):
             json.dump(self.ratio_train_metrics, f, cls=DictJsonEncoder, indent=4)
         print("Metrics saved to", self.experiment_config.drpu_metrics_file)
 
+    def _train_step_nnpu_km2(self, epoch: int, kbar: pkbar.Kbar) -> None:
+        """Train the nnPU model with KM2 prior."""
+        self.nnpu_km2_model.train()
+        tr_loss = 0
+
+        loss_fct = self.experiment_config.PULoss(prior=self.train_km2)
+        for batch_idx, (data, _, label) in enumerate(self.train_loader):
+            data, label = data.to(self.device), label.to(self.device)
+            self.nnpu_km2_optimizer.zero_grad()
+            output = self.nnpu_km2_model(data)
+
+            loss = loss_fct(output.view(-1), label.type(torch.float))
+            tr_loss += loss.item()
+            loss.backward()
+            self.nnpu_km2_optimizer.step()
+
+            kbar.update(batch_idx + 1, values=[("loss", loss)])
+
+        metric_values = {"tr_loss": tr_loss, "epoch": epoch}
+        self.nnpu_km2_train_metrics.append(metric_values)
+
+    def train_nnpu_km2(self) -> None:
+        """Train the nnPU model with KM2 prior."""
+        self.train_km2 = self._estimate_train_km_prior()
+        self._set_seed()
+        self.nnpu_km2_model = self.nnpu_km2_model.to(self.device)
+        self.nnpu_km2_train_metrics = []
+
+        for epoch in range(self.experiment_config.dataset_config.num_epochs):
+            kbar = pkbar.Kbar(
+                target=len(self.train_loader) + 1,
+                epoch=epoch,
+                num_epochs=self.experiment_config.dataset_config.num_epochs,
+                width=8,
+                always_stateful=False,
+            )
+            self._train_step_nnpu_km2(epoch, kbar)
+
+        print("nnPU-KM2 training complete.")
+
     def _train_step_from_mixed(
         self, epoch: int, kbar: pkbar.Kbar, mixed_prior: float
     ) -> None:
@@ -280,8 +330,16 @@ class PULSExperiment(Experiment):
 
         print("Mixed-DRPU training complete.")
 
+    def _estimate_train_km_prior(self) -> float:
+        """Estimate the prior of training set with KM2 method."""
+        pos = self.train_set.data.clone()[self.train_set.pu_targets == 1].numpy()
+        unl = self.train_set.data.clone().numpy()
+        KM2 = KM2_estimate(pos, unl)
+
+        return KM2
+
     def _estimate_test_km_prior(self) -> tuple[float, float]:
-        """Estimate the prior of test set with KM1 and KM2 methods."""
+        """Estimate the prior of test set with KM2 methods."""
         pos = self.train_set.data.clone()[self.train_set.pu_targets == 1].numpy()
         unl = self.test_set.data.clone().numpy()
         KM2 = KM2_estimate(pos, unl)
@@ -321,7 +379,7 @@ class PULSExperiment(Experiment):
         return prior
 
     def _estimate_test_pi(self, use_drpu: bool = True) -> None:
-        """Estimate the test pi values using KM1, KM2, and DRE methods."""
+        """Estimate the test pi values using MLLS, KM2, and DRE methods."""
         # True pi
         true_pi = self.label_shift_config.test_prior
 
@@ -343,6 +401,7 @@ class PULSExperiment(Experiment):
             dre=ratio_pi,
             dre_from_mixed=mixed_ratio_pi,
             mixed_prior=mixed_prior,
+            train_km2=self.train_km2,
         )
 
     def _run_mlls(
@@ -459,6 +518,10 @@ class PULSExperiment(Experiment):
                 test_loss_func = self.experiment_config.PULoss(
                     prior=self.prior
                 )  # TODO: priors not always known
+            elif model_type in [ModelType.NNPU_KM2]:
+                test_loss_func = self.experiment_config.PULoss(
+                    prior=self.train_km2
+                )  # for nnPU-KM2, use KM2 estimated prior
             else:
                 test_loss_func = self.experiment_config.PULoss(
                     prior=self.label_shift_config.mixed_prior
@@ -472,7 +535,7 @@ class PULSExperiment(Experiment):
                     posterior_output = output * factor
                 else:
                     posterior_output = torch.sigmoid(output)
-                posterior_outputs.append(posterior_output)
+                posterior_outputs.append(posterior_output)  
                 if calculate_roc_curve:
                     y_scores.append(posterior_output)
 
@@ -613,6 +676,10 @@ class PULSExperiment(Experiment):
                 estimated_pi=None, model_type=ModelType.NNPU, calculate_roc_curve=True
             )
         )
+        self.metrics["nnPU+KM2"] = self._test_with_threshold(
+            estimated_pi=None, model_type=ModelType.NNPU_KM2
+        )
+        self.test_pis.train_km2 = self.train_km2
 
         # Threshold adjustment with different pi estimates
         self.metrics["nnPU+TA+True"] = self._test_with_threshold(
@@ -690,6 +757,10 @@ class PULSExperiment(Experiment):
         self.metrics["DRPU+TA+KM2"] = self._test_with_threshold(
             estimated_pi=self.test_pis.km2, model_type=ModelType.DRPU
         )
+        self.metrics["nnPU+KM2"] = self._test_with_threshold(
+            estimated_pi=None, model_type=ModelType.NNPU_KM2
+        )
+        self.test_pis.train_km2 = self.train_km2
         
         # Threshold adjustment on grid of thresholds
         self.test_ta_on_grid()
@@ -718,14 +789,32 @@ class PULSExperiment(Experiment):
             json.dump(self.metrics, f, cls=DictJsonEncoder, indent=4)
         print("Metrics saved to", self.experiment_config.metrics_file)
 
+    def train_nnpu_km2_and_test(self) -> None:
+        """Train the nnPU-KM2 model and test on the shifted data."""
+        with open(self.experiment_config.metrics_file, "r") as f:
+            self.metrics = json.load(f)
+        
+        self.plot_model_outputs = False
+        self.train_nnpu_km2()
+        self.metrics["nnPU+KM2"] = self._test_with_threshold(
+            estimated_pi=None, model_type=ModelType.NNPU_KM2
+        )
+        self.metrics["test_pis"]["train_km2"] = self.train_km2
+
+        with open(self.experiment_config.metrics_file, "w") as f:
+            json.dump(self.metrics, f, cls=DictJsonEncoder, indent=4)
+        print("Metrics saved to", self.experiment_config.metrics_file)
+
     def train_nnpu(self) -> None:
         """Train nnPU models."""
         self.run()
+        self.train_nnpu_km2()
         self.train_from_mixed()
 
     def train_all(self) -> None:
         """Train all models."""
         self.run()
+        self.train_nnpu_km2()
         self.train_ratio_estimator()
         self.train_from_mixed()
         self.train_ratio_from_mixed()

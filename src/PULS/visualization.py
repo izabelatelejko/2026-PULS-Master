@@ -1323,3 +1323,77 @@ def plot_accuracy_threshold(
     plt.show()
 
     return fig, axes
+
+
+def plot_boxplots_metric(
+    df_metric,
+    dataset_name,
+    metric="accuracy",
+    label_frequency=0.5,
+    save=False,
+    identifier=None,
+    save_folder="results_img",
+):
+
+    fig, ax = plt.subplots(figsize=(10, 6))
+    sns.boxplot(
+        data=df_metric,
+        x='method',
+        y='value',
+        ax=ax,
+        color='steelblue',
+        showfliers=False,
+    )
+    ax.set_xlabel('Method')
+    ax.set_ylabel(metric.capitalize())
+    ax.tick_params(axis='x', rotation=45)
+    ax.grid(True, axis='y', linestyle='--', alpha=0.4)
+    plt.tight_layout()
+
+    if save:
+        _save_plot(
+            fig,
+            save_folder,
+            dataset_name,
+            label_frequency,
+            f"boxplot_{metric}",
+            identifier,
+        )
+
+    plt.show()
+
+def plot_boxplots_mae(
+    df_mae,
+    dataset_name,
+    label_frequency=0.5,
+    save=False,
+    identifier=None,
+    save_folder="results_img",
+):
+
+    fig, ax = plt.subplots(figsize=(5, 5))
+    sns.boxplot(
+        data=df_mae,
+        x='method',
+        y='mae',
+        ax=ax,
+        color='steelblue',
+        showfliers=False,
+    )
+    ax.set_xlabel('Method')
+    ax.set_ylabel('MAE')
+    ax.tick_params(axis='x', rotation=45)
+    ax.grid(True, axis='y', linestyle='--', alpha=0.4)
+    plt.tight_layout()
+
+    if save:
+        _save_plot(
+            fig,
+            save_folder,
+            dataset_name,
+            label_frequency,
+            "boxplot_mae",
+            identifier,
+        )
+
+    plt.show()

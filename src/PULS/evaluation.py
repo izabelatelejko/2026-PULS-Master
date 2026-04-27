@@ -128,7 +128,7 @@ def get_single_metrics(
                         est_pi = metrics_contents["DRPU+Target"]["estimated_test_pi"]
                     else:
                         est_pi = -1
-                elif est_pi is None and method_name == "nnPU":
+                elif est_pi is None and method_name in ["nnPU", "nnPU+KM2"]:
                     est_pi = -1  # Set to -1 as nnPU does not estimate test pi
                 converged = abs(est_pi - test_pi) < 0.15
                 if method_name in ["nnPU+MLLS", "DRPU+MLLS"] and not converged:
@@ -140,6 +140,8 @@ def get_single_metrics(
                     elif metric in method_data:
                         value = method_data[metric]
                         tc_results[method_name][metric].append(value)
+            else:
+                print(f"Warning: Method {method_name} not found in metrics for exp {exp_number}")
 
     if aggregate and not single_exp:
         for method_name in methods:
@@ -419,6 +421,157 @@ def evaluate_all_metrics(
                         )
 
     return combined_tc_metrics_df
+
+
+def evaluate_all_metrics_by_exp(
+    dataset_name: str,
+    mean: Optional[float],
+    n: int,
+    label_frequency: float,
+    train_pi: List[float],
+    test_pi: List[float],
+    single_exp: bool = False,
+    nnpu_only: bool = False,
+):
+    """Load per-experiment TC metrics without aggregating across runs."""
+
+    methods = ALL_METHODS if not nnpu_only else NNPU_METHODS
+    n_exp = 1 if single_exp else K
+
+    combined_tc_metrics_df = pd.DataFrame(
+        columns=[
+            "exp_number",
+            "pi",
+            "new_pi",
+            "method",
+            "metric",
+            "value",
+            "converged",
+        ]
+    )
+
+    for pi in train_pi:
+        for new_pi in test_pi:
+            for exp_number in range(0, n_exp):
+                metrics_file_path = f"{RESULTS_DIR}/{dataset_name}/{n}/"
+                if mean is not None:
+                    metrics_file_path += f"{mean}/"
+                metrics_file_path += (
+                    f"{pi}/{new_pi}/{label_frequency}/{exp_number}/metrics.json"
+                )
+                with open(metrics_file_path, "r") as f:
+                    metrics_contents = json.load(f)
+
+                for method in methods:
+                    if method not in metrics_contents:
+                        continue
+
+                    method_data = metrics_contents[method]
+                    est_pi = method_data.get("estimated_test_pi")
+                    if est_pi is None and method == "nnPU+Target":
+                        if (
+                            "DRPU+Target" in metrics_contents
+                            and "estimated_test_pi"
+                            in metrics_contents["DRPU+Target"]
+                        ):
+                            est_pi = metrics_contents["DRPU+Target"][
+                                "estimated_test_pi"
+                            ]
+                        else:
+                            est_pi = -1
+                    elif est_pi is None and method in ["nnPU", "nnPU+KM2"]:
+                        est_pi = -1
+
+                    converged = abs(est_pi - new_pi) < 0.15
+                    if method in ["nnPU+MLLS", "DRPU+MLLS"] and not converged:
+                        continue
+
+                    for metric in METRICS:
+                        if metric in method_data:
+                            tc_metrics_row = {
+                                "exp_number": exp_number,
+                                "pi": pi,
+                                "new_pi": new_pi,
+                                "method": method,
+                                "metric": metric,
+                                "value": method_data[metric],
+                                "converged": converged,
+                            }
+                            combined_tc_metrics_df = pd.concat(
+                                [
+                                    combined_tc_metrics_df,
+                                    pd.DataFrame(tc_metrics_row, index=[0]),
+                                ],
+                                ignore_index=True,
+                            )
+
+    return combined_tc_metrics_df
+
+
+def evaluate_shifted_pi_estimation_by_exp(
+    dataset_name: str,
+    mean: Optional[float],
+    n: int,
+    label_frequency: float,
+    train_pi: List[float],
+    test_pi: List[float],
+    single_exp: bool = False,
+):
+    """Load per-experiment prior-estimation metrics without aggregating across runs."""
+
+    n_exp = 1 if single_exp else K
+    combined_pi_results_df = pd.DataFrame(
+        columns=[
+            "exp_number",
+            "pi",
+            "new_pi",
+            "method",
+            "estimated_test_pi",
+            "mae",
+            "converged",
+        ]
+    )
+
+    for pi in train_pi:
+        for new_pi in test_pi:
+            for exp_number in range(0, n_exp):
+                metrics_file_path = f"{RESULTS_DIR}/{dataset_name}/{n}/"
+                if mean is not None:
+                    metrics_file_path += f"{mean}/"
+                metrics_file_path += (
+                    f"{pi}/{new_pi}/{label_frequency}/{exp_number}/metrics.json"
+                )
+                with open(metrics_file_path, "r") as f:
+                    metrics_contents = json.load(f)
+
+                for method in PI_ESTIMATION_METHODS:
+                    estimated_test_pi = metrics_contents["test_pis"].get(method)
+                    if estimated_test_pi is None:
+                        continue
+
+                    mae = abs(estimated_test_pi - new_pi)
+                    converged = mae < 0.15
+                    if method in ["mlls_nnpu", "mlls_drpu"] and not converged:
+                        continue
+
+                    pi_results_row = {
+                        "exp_number": exp_number,
+                        "pi": pi,
+                        "new_pi": new_pi,
+                        "method": method.upper(),
+                        "estimated_test_pi": estimated_test_pi,
+                        "mae": mae,
+                        "converged": converged,
+                    }
+                    combined_pi_results_df = pd.concat(
+                        [
+                            combined_pi_results_df,
+                            pd.DataFrame(pi_results_row, index=[0]),
+                        ],
+                        ignore_index=True,
+                    )
+
+    return combined_pi_results_df
 
 
 def evaluate_shifted_pi_estimation_from_all_data(
