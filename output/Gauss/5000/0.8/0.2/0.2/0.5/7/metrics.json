@@ -7457,7 +7457,7 @@
         "n_iter_mlls_drpu": 5,
         "mixed_prior": 0.2,
         "mixed_prior_km2": null,
-        "train_km2": 0.3912009512485137
+        "train_km2": 0.26961483594864477
     },
     "nnPU": {
         "model": "nnPUcc",
@@ -7611,12 +7611,12 @@
         "dataset": "Gauss/5000/0.8/0.2/0.2",
         "label_frequency": 0.5,
         "exp_number": 7,
-        "accuracy": 0.8686,
-        "precision": 0.6130520764667106,
-        "recall": 0.93,
-        "f1": 0.7389749702026222,
-        "auc": 0.8916250000000001,
-        "balanced_accuracy": 0.891625,
+        "accuracy": 0.9032,
+        "precision": 0.7054140127388535,
+        "recall": 0.886,
+        "f1": 0.7854609929078015,
+        "auc": 0.89675,
+        "balanced_accuracy": 0.8967499999999999,
         "loss": null,
         "epoch": null,
         "stopping_epoch": null,

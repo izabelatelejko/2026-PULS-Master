@@ -673,7 +673,7 @@ def plot_real_accuracy_grid(
             "FashionMNIST",
             "ChestXRay",
             "Electricity",
-            "Covertype",
+            "CIFAR10",
             "SMSSpam",
         ]
 
@@ -857,7 +857,7 @@ def plot_real_mae_grid(
             "FashionMNIST",
             "ChestXRay",
             "Electricity",
-            "Covertype",
+            "CIFAR10",
             "SMSSpam",
         ]
 
@@ -1225,7 +1225,7 @@ def plot_roc_grid(
                 s=80,
                 zorder=5,
                 marker="^",
-                label=f"Target = {optimal_threshold:.2f}",
+                label=f"True = {optimal_threshold:.2f}",
             )
 
         # Youden's J Statistic
