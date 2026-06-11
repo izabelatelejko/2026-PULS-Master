@@ -216,7 +216,7 @@ This thesis investigates label shift adaptation in case-control PU learning. We 
 
 The proposed methods are evaluated on both synthetic and real-world datasets under a variety of label shift configurations. As part of the evaluation, we introduce a procedure for simulating label shift in PU data. The experimental results indicate that label shift adaptation methods do not necessarily improve classification performance in PU learning. However, additional analysis suggests that classification accuracy is often relatively insensitive to threshold modifications. Overall, the study provides a systematic comparison of label shift adaptation techniques in PU learning and identifies the directions for future research.
 
-\noindent \textbf{Keywords:}  machine learning, semi-supervised learning, positive-unlabeled data, label shift, class-prior estimation
+\noindent \textbf{Keywords:}  machine learning, semi-supervised learning, positive-unlabeled data, label shift, class prior estimation
 \end{abstract}
 }
 
@@ -284,11 +284,11 @@ In the case-control scenario, most classifiers are constructed under the assumpt
 
 An additional complexity arises from the fact that while the training priors may sometimes be known, the prior probabilities during testing are inherently unknown and must be estimated. Accurately estimating these priors is critical for enabling classifiers to effectively adjust to the label shift and make reliable predictions in the test data. Without a precise prior estimation, corrections for the shift may be flawed, resulting in diminished classification performance. This study presents several methods for prior estimation that can be applied to PU data.
 
-The only known approach to address label shift in PU learning was proposed by \cite{nakajima2022}. Their method involves estimating the new posterior probabilities using density-ratio estimation and adapting the PU classifier to account for the shifted priors. This work aims to evaluate their approach and introduce a novel EM-based method for addressing label shift in Positive Unlabeled data, with the objective of comparing and analyzing various solutions.
+The only known approach to address label shift in PU learning was proposed by \cite{nakajima2022}. Their method involves estimating the new posterior probabilities using density ratio estimation and adapting the PU classifier to account for the shifted priors. This work aims to evaluate their approach and introduce the novel methods based on classification threshold adaptation and Expectation-Maximization-based posterior adjustment for addressing label shift in Positive Unlabeled data, with the objective of comparing and analyzing various solutions.
 
 \chapter{Theory} \label{theory}
 
-In this chapter, the theoretical foundations relevant to the study are presented. The concept of label shift is introduced, along with its implications for classification models. Subsequently, the framework of Positive Unlabeled (PU) learning is presented, including the derivation of the PU risk estimator and the challenges it faces, such as ensuring non-negativity through appropriate adjustments. Finally, the combination of PU learning and label shift is addressed, with a focus on the density-ratio method.
+In this chapter, the theoretical foundations relevant to the study are presented. The concept of label shift is introduced, along with its implications for classification models. Subsequently, the framework of Positive Unlabeled (PU) learning is presented, including the derivation of the PU risk estimator and the challenges it faces, such as ensuring non-negativity through appropriate adjustments. Finally, the combination of PU learning and label shift is addressed, with a focus on the density ratio method.
 
 \section{Label Shift}
 
@@ -310,7 +310,7 @@ $$
 
 where $p'(k) = P_{P'}(Y = k)$ is the prior probability of class $k$ in the test data. The priors satisfy $\sum_{k=1}^K p(k) = \sum_{k=1}^K p'(k) = 1$. Label shift assumes that the overall data distribution changes due to differences in priors, while the class-conditional densities $p(x \mid Y=k)$ remain unchanged.
 
-Classifiers trained with a specific class-prior may fail on test data with different priors. The posterior probability on which classification rules are based, depends on priors:
+Classifiers trained with a specific class prior may fail on test data with different priors. The posterior probability on which classification rules are based, depends on priors:
 
 $$
 p(k | x) \propto p(x | k) p(k),
@@ -495,7 +495,7 @@ In the PU learning framework, the classification task involves two variables: $X
 
 The marginal distributions are defined as follows: $p_p(x) = p(x \mid Y = +1)$ represents the conditional distribution of the positive class, $p_n(x) = p(x \mid Y = -1)$ represents the conditional distribution of the negative class, and $p(x)$ denotes the overall distribution of the unlabeled data. In the PU setting, and case-control scenario, only positive samples ($X_p$) and unlabeled samples ($X_u$) are observed. Specifically, $X_p = \{x_i^p\}_{i=1}^{n_p}$ is the set of $n_p$ positive samples drawn from the $p_p(x)$ distribution, and $X_u = \{x_i^u\}_{i=1}^{n_u}$ is the set of $n_u$ unlabeled samples drawn from the $p(x)$ distribution.
 
-From now on, the class-prior probabilities are denoted as $\pi_p = p(Y = +1)$ for the positive class and $\pi_n = 1 - \pi_p = p(Y = -1)$ for the negative class. In most cases, $\pi_p$ is assumed to be known or estimated directly from the positive and unlabeled data.
+From now on, the class prior probabilities are denoted as $\pi_p = p(Y = +1)$ for the positive class and $\pi_n = 1 - \pi_p = p(Y = -1)$ for the negative class. In most cases, $\pi_p$ is assumed to be known or estimated directly from the positive and unlabeled data.
 
 We define the fundamental concepts of classification functions, loss functions, and risk functions, formulated for binary classification, to establish the mathematical framework for Positive Unlabeled learning.
 
@@ -638,11 +638,11 @@ Variational PU (VPU) \citep{chen2020} utilizes a variational loss function to di
 
 \section{PU Learning under Label Shift}
 
-Non-negative PU algorithm relies on assumption that the class-prior probabilities are known in advance and remain the same for the training and test data. However, this assumption is often unrealistic in practical scenarios. Training samples are frequently collected in ways that do not reflect the true proportions of positive and negative classes. For example, in rare disease detection, datasets often include all known cases of affected patients, leading to an increased fraction of the positive samples. The class proportions may also fluctuate over time, either temporarily or permanently, due to external factors. For example, during an epidemic, the fraction of sick individuals in the population temporarily increases compared to non-epidemic periods.
+Non-negative PU algorithm relies on assumption that the class prior probabilities are known in advance and remain the same for the training and test data. However, this assumption is often unrealistic in practical scenarios. Training samples are frequently collected in ways that do not reflect the true proportions of positive and negative classes. For example, in rare disease detection, datasets often include all known cases of affected patients, leading to an increased fraction of the positive samples. The class proportions may also fluctuate over time, either temporarily or permanently, due to external factors. For example, during an epidemic, the fraction of sick individuals in the population temporarily increases compared to non-epidemic periods.
 
-Even when the class-priors for the training data are available, the priors for the test data are not necessarily known, particularly during the training phase. These challenges necessitate methods that not only estimate the class-priors but also adapt dynamically to label shift.
+Even when the class priors for the training data are available, the priors for the test data are not necessarily known, particularly during the training phase. These challenges necessitate methods that not only estimate the class priors but also adapt dynamically to label shift.
 
-In this section, we focus on approach proposed by \cite{nakajima2022} that uses density ratio estimation \citep*{sugiyama2012} to account for label shift. This method eliminates the need for prior knowledge of test class-priors and ensure robust performance under varying distributions. Density ratio estimation leverages the relationship between the marginal and class-conditional densities to estimate class-prior probabilities and adjust classifiers accordingly. 
+In this section, we focus on approach proposed by \cite{nakajima2022} that uses density ratio estimation \citep*{sugiyama2012} to account for label shift. This method eliminates the need for prior knowledge of test class priors and ensure robust performance under varying distributions. Density ratio estimation leverages the relationship between the marginal and class-conditional densities to estimate class prior probabilities and adjust classifiers accordingly. 
 
 The density ratio between the positive class-conditional density and the marginal input density, is defined as:
 
@@ -656,7 +656,7 @@ Using Bayes' rule, the posterior probability for the positive class can be expre
     p(Y=+1 | x) = \pi_p r^*(x).
 \end{equation}
 
-From this equation, we can observe that the training process revolves around estimating the density ratio $r^*(x)$, and it does not depend on prior knowledge of $\pi_p$. This independence from class-priors during training mitigates the problem of propagating prior estimation errors in training phase. However, the class-prior $\pi_p$ will still be needed during classification to compute posterior probabilities.
+From this equation, we can observe that the training process revolves around estimating the density ratio $r^*(x)$, and it does not depend on prior knowledge of $\pi_p$. This independence from class priors during training mitigates the problem of propagating prior estimation errors in training phase. However, the class prior $\pi_p$ will still be needed during classification to compute posterior probabilities.
 
 \subsection{Density Ratio Estimation}
 
@@ -790,7 +790,7 @@ $$
 R_{\pi, c}(g) = (1-c)\pi_p {R}_{p}^{+}(g) + c\pi_n {R}_{n}^{-}(g).
 $$
 
-\citet{charoenphakdee2019} showed that classification under class-prior shift can be formulated as cost-sensitive classification. Let $\pi' \in (0, 1)$ represent the class-prior of the test distribution. Then, $R_{\pi', 1/2}(g) \propto R_{\pi, c}(g)$ with:
+\citet{charoenphakdee2019} showed that classification under class prior shift can be formulated as cost-sensitive classification. Let $\pi' \in (0, 1)$ represent the class prior of the test distribution. Then, $R_{\pi', 1/2}(g) \propto R_{\pi, c}(g)$ with:
 
 $$
 c = \frac{\pi(1-\pi')}{\pi(1-\pi') + \pi'(1-\pi)}.
@@ -962,7 +962,7 @@ By rearranging the terms in the above inequality, we can isolate $h$:
     h > \frac{\pi (1 - \pi')}{\pi + \pi' -2\pi \pi'}.
 \end{equation}
 
-Inequality \ref{eq:tm-h} provides the classification boundary for shifted PU data with prior $\pi'$, based on the classification function trained on data with class-prior $\pi$. Therefore, this threshold adjustment enables standard PU learning methods to adapt to label shift without requiring retraining. Table~\ref{tab:threshold_adjustment} presents sample adjusted thresholds calculated over a grid of nine values for training and test class priors.
+Inequality \ref{eq:tm-h} provides the classification boundary for shifted PU data with prior $\pi'$, based on the classification function trained on data with class prior $\pi$. Therefore, this threshold adjustment enables standard PU learning methods to adapt to label shift without requiring retraining. Table~\ref{tab:threshold_adjustment} presents sample adjusted thresholds calculated over a grid of nine values for training and test class priors.
 
 \begin{table}[H]
   \centering
@@ -1097,7 +1097,7 @@ In this section, we present an overview of the methods for handling label shift 
 
 \subsection{Learning methodologies}
 
-In this work, we evaluate the performance of two PU learning methodologies introduced in the previous chapter: the non-negative PU (nnPU) learning algorithm and the density-ratio-based PU (DRPU) approach.
+In this work, we evaluate the performance of two PU learning methodologies introduced in the previous chapter: the non-negative PU (nnPU) learning algorithm and the density ratio-based PU (DRPU) approach.
 
 \subsection{Loss Functions for nnPU}
 
@@ -1174,7 +1174,7 @@ For the purpose of prior estimation $\hat{\pi}'$ from unlabeled data $X_U$, we c
 
 We summarize all evaluated variants in Table~\ref{tab:methods-codes}. As baselines, we report the original implementations of \texttt{nnPU} and \texttt{DRPU}. The nnPU method does not provide any adaptation to label shift. Additionally, we include a variant of nnPU in which the source prior is estimated using KM2 instead of being assumed known (\texttt{nnPU+KM2}). This is the only method where we relax our general assumption of known source prior. The purpose of including this variant is to verify whether this assumption can considerably influence performance in favor of methods making use of this information.
 
-Next, we evaluate the threshold adjustment strategy proposed in Section~\ref{sec:ta}, which modifies the decision rule at test time without retraining the underlying model. These variants are denoted by the \texttt{TA} keyword and depend on the method used for prior estimation. The \texttt{True} variant refers to the true empirical class prior in the target data and is included solely for comparison with estimator-based variants, since in realistic scenarios only estimated priors are available. We therefore consider two practical estimators: the widely used \texttt{KM2} estimator and the density-ratio-based estimator associated with the DRPU methodology (\texttt{DR}). We utilize the same models as in nnPU and DRPU, however for nnPU, threshold adjustment replaces the default classification threshold of $0.5$. Since DRPU already incorporates a threshold adaptation mechanism, the baseline \texttt{DRPU} itself belongs to this group. We additionally evaluate variants where the original density ratio estimate is replaced the KM2 estimate (\texttt{DRPU+TA+KM2}). We classify all these methods as one group, related to threshold adaptation.
+Next, we evaluate the threshold adjustment strategy proposed in Section~\ref{sec:ta}, which modifies the decision rule at test time without retraining the underlying model. These variants are denoted by the \texttt{TA} keyword and depend on the method used for prior estimation. The \texttt{True} variant refers to the true empirical class prior in the target data and is included solely for comparison with estimator-based variants, since in realistic scenarios only estimated priors are available. We therefore consider two practical estimators: the widely used \texttt{KM2} estimator and the density ratio-based estimator associated with the DRPU methodology (\texttt{DR}). We utilize the same models as in nnPU and DRPU, however for nnPU, threshold adjustment replaces the default classification threshold of $0.5$. Since DRPU already incorporates a threshold adaptation mechanism, the baseline \texttt{DRPU} itself belongs to this group. We additionally evaluate variants where the original density ratio estimate is replaced the KM2 estimate (\texttt{DRPU+TA+KM2}). We classify all these methods as one group, related to threshold adaptation.
 
 We also combine both learning frameworks with the EM-based MLLS procedure described in Section~\ref{posterior-adjust} (\texttt{nnPU+MLLS} and \texttt{DRPU+MLLS}). In these variants, the underlying models are trained exactly as in standard nnPU and DRPU. Posterior probabilities are computed in the usual way but subsequently adjusted using the MLLS procedure before generating final predictions. All posterior scores are thresholded at $0.5$. The application of MLLS to PU learning under label shift is proposed in this work, and these two methods constitute the group of posterior adjustment approaches.
 
@@ -1233,7 +1233,7 @@ Additionally, each method based on the nnPU learning framework is evaluated usin
 \newpage
 \section{Evaluation of Results}
 
-In this section, we describe the metrics used to evaluate the performance of the proposed approach. We consider both the estimation error of class-prior and the effectiveness of the PU classifier.
+In this section, we describe the metrics used to evaluate the performance of the proposed approach. We consider both the estimation error of class prior and the effectiveness of the PU classifier.
 
 \subsection{Evaluation of Prior Estimation}
 
@@ -1595,7 +1595,7 @@ f^*(x) = xf'(x) - f(x) = \frac{x^2-1}{2}.
 
 For both models the same architecture of Multi-Layer Perceptron (MLP), following the design proposed by \cite{kiryo2017}, is used. The model takes as input flattened feature vectors of dimension $d$ and maps them through a series of transformations to a single scalar output. The network consists of five linear layers, where the first four hidden layers have 300 units each and are followed by Batch Normalization and the ReLU activation function $f(x) = \max(0, x)$ \citep{agarap2018}. To avoid redundancy, all linear layers before the final output layer are defined without bias terms, since Batch Normalization layers include learnable parameters. The final layer is a single-unit linear layer. 
 
-The objectives were minimized using the Adam stochastic optimization algorithm \citep{kingma2014} with learning rate parameter $\alpha=10e^{-5}$, decay rates $\beta_1=0.9, \beta_2=0.999$, and weight decay $\lambda = 0.005$.
+The objectives were minimized using the Adam stochastic optimization algorithm \citep{kingma2014} with learning rate parameter $\alpha=10e^{-5}$, decay rates $\beta_1=0.9, \beta_2=0.999$, and weight decay $\lambda = 0.005$. All models were trained for 50 epochs.
 
 \section{Experiments Configuration}
 
@@ -1975,7 +1975,7 @@ Figure~\ref{fig:real_accuracy} presents six plots, one for each dataset, showing
 
 \section{Prior Estimation}
 
-We evaluated two methods for class-prior estimation in these experiments: KM2 and density-ratio-based estimation. Figure~\ref{fig:real_mae} presents the average mean absolute error (MAE) aggregated over ten experimental iterations. In most cases, KM2 outperformed the density ratio method, achieving an MAE below 0.05 when the target prior was equal to 0.2 or 0.4. The density ratio method consistently produced more accurate estimates only for the Electricity dataset. However, as the target prior increased, the MAE of the KM2 estimator also increased. The density ratio method consistently produced more accurate estimates only for the Electricity dataset. However, as the target prior increased, the MAE of the KM2 estimator also increased. The density ratio method also appears to provide more accurate estimates for lower values of the target prior. Overall, KM2 appears to perform very well for lower values of the target prior, whereas for higher target priors the density ratio method may sometimes provide more accurate estimates.
+We evaluated two methods for class prior estimation in these experiments: KM2 and density ratio-based estimation. Figure~\ref{fig:real_mae} presents the average mean absolute error (MAE) aggregated over ten experimental iterations. In most cases, KM2 outperformed the density ratio method, achieving an MAE below 0.05 when the target prior was equal to 0.2 or 0.4. The density ratio method consistently produced more accurate estimates only for the Electricity dataset. However, as the target prior increased, the MAE of the KM2 estimator also increased. The density ratio method consistently produced more accurate estimates only for the Electricity dataset. However, as the target prior increased, the MAE of the KM2 estimator also increased. The density ratio method also appears to provide more accurate estimates for lower values of the target prior. Overall, KM2 appears to perform very well for lower values of the target prior, whereas for higher target priors the density ratio method may sometimes provide more accurate estimates.
 
 % Figure \ref{fig:real_mae}.
 
@@ -2045,7 +2045,7 @@ Figure~\ref{fig:real_balanced_accuracy} presents the average balanced accuracy o
 
 \chapter{Conclusions}
 
-The problem of label shift in Positive Unlabeled learning remains largely unexplored, with only a single publication specifically addressing this topic. While various label-shift adaptation techniques have been proposed in the literature, most of them were developed for fully supervised learning. This study investigates how label shift adaptation methods can be effectively combined with PU learning frameworks and what adjustments are necessary to make them applicable in this setting. 
+The problem of label shift in Positive Unlabeled learning remains largely unexplored, with only a single publication specifically addressing this topic. While various label-shift adaptation techniques have been proposed in the literature, most of them were developed for fully supervised learning. This study investigates how label shift adaptation methods can be effectively combined with PU learning frameworks and what adjustments are necessary to make them applicable in this setting. The main contributions of this thesis are threshold adaptation methodology and the integration of MLLS procedure into PU learning framework for handling label shift in PU data.
 
 This work investigated label shift adaptation in the case-control PU learning scenario. We evaluated two PU learning frameworks, namely nnPU and DRPU, several class prior estimation methods, and multiple approaches for adapting classifiers to label shift. Within the nnPU framework, both sigmoid and logistic loss functions were considered. In most experimental configurations, the sigmoid loss achieved better classification performance. Nevertheless, it might be beneficial to use nnPU with binary cross-entropy for higher values of target prior like 0.8. Since the target prior is unknown in practice and must first be estimated, choosing the model based on this observation would require training separate models with both loss functions and selecting the appropriate one based on the estimated target prior at given time.
 
@@ -2059,27 +2059,21 @@ The target retraining approach, where the model was trained on combination $X_P+
 
 We evaluated several methods for class prior estimation. The KM2 estimator, which is widely used in the literature, and the density ratio-based estimator employed within the DRPU framework were generally able to produce accurate estimates of the target prior. In the synthetic experiments, the density ratio estimator often outperformed KM2, whereas on the real datasets KM2 typically achieved lower estimation errors. Overall, both methods proved to be reliable. In contrast, the prior estimates obtained through the MLLS procedure were highly unstable due to the convergence issues discussed above. As a result, based on our experiments, MLLS cannot be considered a reliable approach for class prior estimation.
 
-In the experiments, we generally assumed that the source prior was known. However, we also included the \texttt{nnPU+KM2} variant to evaluate a more realistic scenario in which the source prior is unknown and must be estimated from the source data. The comparison between the standard nnPU model and its \texttt{nnPU+KM2} variant indicates that the errors introduced by the additional estimation step have only a minor impact on the final classification performance. Additionally, as already mentioned, both KM2 and the density-ratio-based method are generally able to produce accurate estimates of the class prior.
+In the experiments, we generally assumed that the source prior was known. However, we also included the \texttt{nnPU+KM2} variant to evaluate a more realistic scenario in which the source prior is unknown and must be estimated from the source data. The comparison between the standard nnPU model and its \texttt{nnPU+KM2} variant indicates that the errors introduced by the additional estimation step have only a minor impact on the final classification performance. Additionally, as already mentioned, both KM2 and the density ratio-based method are generally able to produce accurate estimates of the class prior.
 
 An important limitation of the considered approaches is their reliance on batch processing. Throughout this thesis, all methods were evaluated on batches consisting of 5,000 observations sampled from the target distribution. Consequently, the proposed techniques are not directly applicable to streaming scenarios, where observations arrive continuously, or to situations in which predictions must be made for individual observations. Since class prior estimates must be derived from an entire sample, its accuracy may significantly decrease when only a small amount of target data is available. Furthermore, the target retraining approach requires access to a sufficiently large target sample in order to learn the shifted distribution. Streaming applications with large data volumes could potentially accumulate observations until a batch of sufficient size becomes available, however many use cases require predictions to be generated much more rapidly. Therefore, the area of Positive Unlabeled learning for streaming data, and handling label shift for them is an area for future research.
 
-An important limitation of the considered approaches is their reliance on batch processing. In this work, all methods were evaluated on batches consisting of 5,000 observations sampled from the target distribution. Consequently, the proposed techniques are not directly applicable to streaming scenarios, where observations arrive continuously, or to situations in which predictions must be made for individual observations. Since class prior estimates must be derived from an entire sample, their accuracy may significantly decrease when only a small amount of target data is available. Furthermore, the target-retraining approach requires access to a sufficiently large target sample in order to learn the shifted distribution. Streaming applications with large data volumes could potentially accumulate observations until a batch of sufficient size becomes available, however, many use cases require predictions to be generated much more rapidly. Therefore, exploring Positive Unlabeled learning under label shift for streaming scenarios remains an important direction for future research.
-
-
+Overall, the results suggest that adapting PU learning models to label shift is substantially more challenging than adapting fully supervised classifiers. Although class prior estimation can often be performed accurately, correcting for the estimated shift does not necessarily provide improved classification performance.
 
 \chapter{Future Work}
 
-Due to computational constraints, experiments were limited to one synthetic data generator, ten repetitions, fixed label frequency c=0.5, and datasets of 5000 observations.
-Future studies could investigate a wider range of configurations: check the influence of label frequency, check the influence of dataset sizes.
-test different models architecture - experiment with it, especially for DRPU, where the choice ogf ReLu activation function might be problematic.
-Explore if starting MLLS algorithm with different initial values could improve its poor performance and ability to converge.
-check the variant when source prior is unknown
+Due to the optimization procedure used by the KM2 estimator, which was highly computational demanding, the experiments conducted in this work were limited to a single synthetic data generator, ten repetitions for each configuration, a fixed label frequency of $c=0.5$, and datasets consisting of $5,000$ observations. Future studies could extend the experimental analysis by considering a broader range of settings. In particular, it would be valuable to investigate the influence of the label frequency, and dataset size on the performance of PU learning methods under label shift.
 
-The derived in this work simulatuion of label shifted Positive Unlabeled data from standard machine learning (binary or multi-class) described in Algorithm \ref{alg:shift_data} can be re-used in further research on the topic.
+The MLLS procedure produced unsatisfactory results in the conducted experiments and frequently failed to converge to reasonable estimates. Our analysis identified a potential area for improvement related to the limitations of the Expectation-Maximization algorithm. Future work could investigate alternative initialization strategies, such as multiple runs from different starting values. Furthermore, although this study primarily assumed that the source prior was known, additional experiments could be performed in settings where both the source and target priors must be estimated.
 
+In the experiments, we used a single neural network architecture based on a multilayer perceptron (MLP), following the implementation proposed by \cite{kiryo2017}. Future work could investigate how alternative model architectures perform under the same learning scenario. In particular, it would be valuable to evaluate architectures specifically designed for image data, such as LeNet and convolutional neural networks in the PU under label shift setting.
 
-
-
+Finally, as there are not many publicly available datasets that naturally follow the PU learning setting, the label shift simulation procedure proposed in this thesis and described in Algorithm~\ref{alg:shift_data} can be reused in future studies on Positive Unlabeled learning under label shift. The procedure is applicable to binary datasets, so multiclass datasets need to be first binarized. This algorithm is suitable for case-control scenario and may serve as a useful tool for other research on this topic enabling the controlled experiments and facilitating the creation of PU datasets from standard supervised datasets.
 
 
 \begin{appendices}
